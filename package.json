@@ -4,7 +4,8 @@
   "description": "PhantomDesk — Professional Remote Desktop Control System",
   "main": "src/main/main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "node server/server.js",
+    "start:app": "electron .",
     "server": "node server/server.js",
     "dev": "concurrently \"npm run server\" \"electron . --device-id=HOST-123 --no-sandbox\" \"electron . --device-id=CLIENT-456 --no-sandbox\"",
     "dev:app": "electron .",
