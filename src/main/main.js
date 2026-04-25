@@ -10,12 +10,17 @@ function writeToLog(msg) {
     const logPath = path.join(app.getPath('userData'), 'debug.log');
     const ts = new Date().toISOString();
     fs.appendFileSync(logPath, `[${ts}] ${msg}\n`);
+    console.log(`[LOG] ${msg}`);
   } catch(e) {}
 }
 
+// Catch Uncaught Exceptions
+process.on('uncaughtException', (error) => {
+  writeToLog(`[FATAL ERROR] Uncaught Exception: ${error.message}\n${error.stack}`);
+});
+
 ipcMain.on('log-to-file', (event, { level, msg }) => {
-  const devId = process.argv.find(a => a.startsWith('--device-id='))?.split('=')[1] || 'AUTO';
-  writeToLog(`[${devId}] [${level.toUpperCase()}] ${msg}`);
+  writeToLog(`[${level.toUpperCase()}] ${msg}`);
 });
 
 // ── Dependency Manager ──
@@ -71,6 +76,7 @@ function createWindow() {
     minWidth: 860, minHeight: 620,
     frame: false, backgroundColor: '#07080f',
     show: false,
+    icon: path.join(__dirname, '../assets/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: false,
@@ -140,13 +146,22 @@ ipcMain.handle('take-screenshot', async () => {
   return null;
 });
 
-// Real System Stats (Simplified)
+// Real System Stats (Windows Compatible)
 ipcMain.handle('get-system-stats', async () => {
   const os = require('os');
-  const cpu = os.loadavg()[0] * 10 || Math.random() * 5; // Simplified CPU load
   const totalMem = os.totalmem();
   const freeMem = os.freemem();
   const ram = ((totalMem - freeMem) / totalMem) * 100;
+  
+  // CPU usage approximation for Windows
+  const cpus = os.cpus();
+  let totalIdle = 0, totalTick = 0;
+  cpus.forEach(core => {
+    for (type in core.times) totalTick += core.times[type];
+    totalIdle += core.times.idle;
+  });
+  const cpu = 100 - (100 * totalIdle / totalTick);
+
   return { cpuLoad: cpu, ramUsage: ram, hostname: os.hostname() };
 });
 

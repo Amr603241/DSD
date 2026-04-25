@@ -31,17 +31,25 @@
     "electron-rebuild": "^3.2.9"
   },
   "build": {
-    "appId": "com.phantomdesk.app",
-    "productName": "PhantomDesk",
+    "appId": "com.phantomdesk.elite",
+    "productName": "PhantomDesk Elite",
+    "copyright": "Copyright © 2026 PhantomDesk Global",
     "asar": true,
-    "compression": "maximum",
+    "asarUnpack": [
+      "node_modules/koffi/**/*",
+      "node_modules/electron-store/**/*"
+    ],
+    "compression": "store",
     "files": [
       "src/**/*",
       "package.json",
       "node_modules/**/*"
     ],
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "src/assets/icon.png",
+      "publisherName": "PhantomDesk Global Systems",
+      "artifactName": "PhantomDesk_Elite_Edition_${version}.${ext}"
     }
   }
 }

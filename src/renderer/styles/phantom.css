@@ -423,6 +423,61 @@ input:checked + .slider::before { transform:translateX(20px); }
 .stool:hover { background:rgba(255,255,255,0.12); color:var(--text); }
 .stool-end:hover { background:var(--danger); color:white; }
 
+/* ── Multi-Session Tabs ── */
+.session-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.session-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.session-tab:hover { background: rgba(255,255,255,0.1); }
+.session-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+}
+.session-tab .tab-close {
+  font-size: 14px;
+  opacity: 0.5;
+  transition: 0.2s;
+}
+.session-tab .tab-close:hover { opacity: 1; color: var(--danger); }
+
+.btn-new-session {
+  background: rgba(255,255,255,0.08);
+  border: 1px dashed var(--border);
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.btn-new-session:hover { background: var(--accent); color: white; border-style: solid; }
+
+/* ── Mouse Fix ── */
+#remote-video {
+  cursor: none; /* Hide local cursor to avoid double-mouse confusion */
+}
+
 /* ── Chat Overlay ── */
 .chat-overlay {
   position: absolute;
