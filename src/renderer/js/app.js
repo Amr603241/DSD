@@ -658,18 +658,6 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   });
   $('btn-chat-close')?.addEventListener('click', () => { if ($('chat-overlay')) $('chat-overlay').style.display = 'none'; });
 
-  // Chat Send
-  const sendChat = () => {
-    const input = $('chat-input');
-    const text = input?.value.trim();
-    if (!text) return;
-    rtc.sendControl({ type: 'chat-message', text });
-    appendChatMessage('sent', text);
-    input.value = '';
-  };
-  $('btn-chat-send')?.addEventListener('click', sendChat);
-  $('chat-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
-
   // File Transfer
   $('stool-file')?.addEventListener('click', () => $('file-input-hidden')?.click());
   $('file-input-hidden')?.addEventListener('change', async (e) => {
