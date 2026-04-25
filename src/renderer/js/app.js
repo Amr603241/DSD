@@ -1,6 +1,6 @@
 /**
- * PhantomDesk — Application Core Elite v1.2
- * Refined Multi-Session Engine with full UI stability.
+ * PhantomDesk — Application Core Elite v1.3
+ * Fixed Syntax Error (Optional Chaining Assignment) and restored functionality.
  */
 
 const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
@@ -69,8 +69,10 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       state.activeSessionId = socketId;
       if (s.stream) {
         const video = $('remote-video');
-        video.srcObject = s.stream;
-        video.play().catch(() => {});
+        if (video) {
+          video.srcObject = s.stream;
+          video.play().catch(() => {});
+        }
       }
       this.renderTabs();
       ui.switchView('session');
@@ -195,10 +197,12 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         s.stream = stream;
         if (state.activeSessionId === socketId) {
           const video = $('remote-video');
-          video.srcObject = stream;
-          video.play().catch(() => {});
-          $('video-overlay').style.display = 'none';
-          ui.switchView('session');
+          if (video) {
+            video.srcObject = stream;
+            video.play().catch(() => {});
+            $('video-overlay').style.display = 'none';
+            ui.switchView('session');
+          }
         }
       }
     });
@@ -242,7 +246,6 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   $('btn-connect')?.addEventListener('click', () => {
     const id = $('remote-id-input')?.value.trim();
     if (!id) return ui.showToast('أدخل معرّف الجهاز', 'warning');
-    
     if (!state.connected) return ui.showToast('انتظر الاتصال بالسيرفر...', 'warning');
 
     log(`جاري طلب الاتصال بـ ${id}...`);
@@ -278,23 +281,30 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       signaling.sendRequest(state.pendingTargetId, pwd);
     }
   });
-  $('btn-pwd-cancel')?.onclick = () => { ui.hidePasswordModal(); resetConnectButton(); };
 
-  $('stool-disconnect')?.onclick = () => { if (state.activeSessionId) sessionManager.remove(state.activeSessionId); };
+  $('btn-pwd-cancel')?.addEventListener('click', () => {
+    ui.hidePasswordModal();
+    resetConnectButton();
+  });
+
+  $('stool-disconnect')?.addEventListener('click', () => {
+    if (state.activeSessionId) sessionManager.remove(state.activeSessionId);
+  });
 
   const sendChat = () => {
     const input = $('chat-input');
-    if (input?.value.trim()) {
+    const text = input?.value.trim();
+    if (text) {
       const s = state.sessions.get(state.activeSessionId);
       if (s) {
-        s.rtc.sendControl({ type: 'chat-message', text: input.value.trim() });
-        appendChatMessage('sent', input.value.trim());
+        s.rtc.sendControl({ type: 'chat-message', text });
+        appendChatMessage('sent', text);
         input.value = '';
       }
     }
   };
-  $('btn-chat-send')?.onclick = sendChat;
-  $('chat-input')?.onkeydown = (e) => { if (e.key === 'Enter') sendChat(); };
+  $('btn-chat-send')?.addEventListener('click', sendChat);
+  $('chat-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
 
   new InputCapture($('remote-video'), (data) => {
     const s = state.sessions.get(state.activeSessionId);
@@ -302,21 +312,26 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   });
 
   // Global Utils
-  $('btn-copy-id')?.onclick = () => { navigator.clipboard.writeText(state.deviceId); ui.showToast('تم النسخ ✓', 'success'); };
-  $('btn-refresh-pwd')?.onclick = async () => {
+  $('btn-copy-id')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(state.deviceId);
+    ui.showToast('تم النسخ ✓', 'success');
+  });
+
+  $('btn-refresh-pwd')?.addEventListener('click', async () => {
     state.password = await window.phantom.refreshPassword();
     ui.setPassword(state.password);
     signaling.socket?.emit('update-password', { password: state.password });
     ui.showToast('تم التجديد ✓', 'success');
-  };
-  $('btn-toggle-pwd')?.onclick = () => ui.togglePasswordVisibility();
+  });
+
+  $('btn-toggle-pwd')?.addEventListener('click', () => ui.togglePasswordVisibility());
 
   // Navigation
-  $('nav-home').onclick = () => ui.switchView('home');
-  $('nav-terminal').onclick = () => { ui.switchView('terminal'); window.phantom.startShell(); };
-  $('nav-logs').onclick = () => ui.switchView('logs');
-  $('nav-settings').onclick = () => ui.switchView('settings');
-  $('nav-diag').onclick = () => ui.switchView('diag');
+  $('nav-home')?.addEventListener('click', () => ui.switchView('home'));
+  $('nav-terminal')?.addEventListener('click', () => { ui.switchView('terminal'); window.phantom.startShell(); });
+  $('nav-logs')?.addEventListener('click', () => ui.switchView('logs'));
+  $('nav-settings')?.addEventListener('click', () => ui.switchView('settings'));
+  $('nav-diag')?.addEventListener('click', () => ui.switchView('diag'));
 
   function appendChatMessage(type, text) {
     const box = $('chat-messages');
