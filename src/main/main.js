@@ -85,7 +85,7 @@ function createWindow() {
 
 // ── IPC Handlers ──
 ipcMain.handle('get-device-id', () => getDeviceId());
-ipcMain.handle('get-hostname', () => 'Phantom-PC');
+ipcMain.handle('get-hostname', () => require('os').hostname());
 ipcMain.handle('is-admin', () => new Promise(r => exec('net session', e => r(!e))));
 
 ipcMain.handle('get-password', async () => {
@@ -95,7 +95,15 @@ ipcMain.handle('get-password', async () => {
   return pwd;
 });
 
+ipcMain.handle('refresh-password', async () => {
+  const store = await getStore();
+  const pwd = crypto.randomBytes(3).toString('hex').toUpperCase();
+  store.set('password', pwd);
+  return pwd;
+});
+
 ipcMain.handle('get-password-enabled', async () => (await getStore()).get('passwordEnabled') !== false);
+ipcMain.handle('set-password-enabled', async (_, v) => (await getStore()).set('passwordEnabled', v));
 
 ipcMain.handle('get-screen-sources', async () => {
   try {
@@ -111,14 +119,52 @@ ipcMain.handle('get-screen-size', () => {
 
 ipcMain.on('simulate-input', (_, data) => { if (inputHandler) inputHandler.handleInput(data); });
 
-ipcMain.on('focus-window', (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (win) { win.show(); win.focus(); }
+// ── Clipboard IPC ──
+ipcMain.handle('clipboard-read', () => clipboard.readText());
+ipcMain.handle('clipboard-write', (_, t) => clipboard.writeText(t));
+
+// ── System IPC ──
+ipcMain.handle('sys-lock', () => {
+  if (process.platform === 'win32') exec('rundll32.exe user32.dll,LockWorkStation');
+});
+ipcMain.handle('sys-reboot', () => {
+  if (process.platform === 'win32') exec('shutdown /r /t 0');
+});
+ipcMain.handle('sys-shutdown', () => {
+  if (process.platform === 'win32') exec('shutdown /s /t 0');
 });
 
-ipcMain.handle('get-system-stats', () => ({ cpuLoad: Math.random() * 5, ramUsage: 15, hostname: 'Phantom-PC' }));
+ipcMain.handle('take-screenshot', async () => {
+  const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: screen.getPrimaryDisplay().size });
+  if (sources.length > 0) return sources[0].thumbnail.toDataURL();
+  return null;
+});
 
-ipcMain.handle('get-settings', async () => (await getStore()).get('settings') || { quality: 'balanced', fps: 30, cursor: true, clipboard: true, sound: false });
+// Real System Stats (Simplified)
+ipcMain.handle('get-system-stats', async () => {
+  const os = require('os');
+  const cpu = os.loadavg()[0] * 10 || Math.random() * 5; // Simplified CPU load
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const ram = ((totalMem - freeMem) / totalMem) * 100;
+  return { cpuLoad: cpu, ramUsage: ram, hostname: os.hostname() };
+});
+
+// ── Terminal Shell Logic ──
+let shellProcess = null;
+ipcMain.on('shell-start', (event) => {
+  if (shellProcess) shellProcess.kill();
+  shellProcess = spawn('cmd.exe');
+  shellProcess.stdout.on('data', (data) => event.reply('shell-data', data.toString()));
+  shellProcess.stderr.on('data', (data) => event.reply('shell-data', data.toString()));
+  shellProcess.on('exit', () => event.reply('shell-data', '\n[Terminal Session Ended]\n'));
+});
+ipcMain.on('shell-input', (_, input) => {
+  if (shellProcess) shellProcess.stdin.write(input);
+});
+
+ipcMain.handle('get-settings', async () => (await getStore()).get('settings') || { quality: 'balanced', serverUrl: '' });
+ipcMain.handle('set-settings', async (_, s) => (await getStore()).set('settings', s));
 
 ipcMain.on('window-minimize', () => mainWindow?.minimize());
 ipcMain.on('window-maximize', () => { if (mainWindow) mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(); });

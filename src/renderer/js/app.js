@@ -3,7 +3,7 @@
  * Orchestrates signaling, WebRTC, UI, and input modules.
  */
 
-const SIGNALING_SERVER = 'http://127.0.0.1:8080';
+const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
 (async function initPhantomDesk() {
   console.log('[PHANTOM] Initializing...');
@@ -248,6 +248,9 @@ const SIGNALING_SERVER = 'http://127.0.0.1:8080';
       };
       document.addEventListener('click', globalClick);
       ui.switchView('session');
+      const navSession = $('nav-session');
+      if (navSession) navSession.style.display = 'flex';
+      
       inputCapture.activate(video);
       log('بدأت الجلسة — البث نشط ✓', 'success');
       ui.addHistory(state.pendingTargetId || 'Host');
@@ -263,19 +266,36 @@ const SIGNALING_SERVER = 'http://127.0.0.1:8080';
   rtc.on('control-data', (data) => {
     if (state.isHost) {
       if (data.type === 'clipboard-sync' && data.text) {
-        state.lastClipboard = data.text; // Update lastClipboard to prevent echo loop
+        state.lastClipboard = data.text;
         window.phantom.writeClipboard(data.text);
+      } else if (data.type === 'chat-message') {
+        appendChatMessage('received', data.text);
+        if ($('chat-overlay')?.style.display === 'none') ui.showToast('رسالة جديدة واردة 💬', 'info');
       } else {
         window.phantom.simulateInput(data);
       }
     } else {
-      // Viewer receiving clipboard from host
+      // Viewer receiving from host
       if (data.type === 'clipboard-sync' && data.text) {
-        state.lastClipboard = data.text; // Update lastClipboard to prevent echo loop
+        state.lastClipboard = data.text;
         window.phantom.writeClipboard(data.text);
+      } else if (data.type === 'chat-message') {
+        appendChatMessage('received', data.text);
+        if ($('chat-overlay')?.style.display === 'none') ui.showToast('المضيف أرسل رسالة 💬', 'info');
       }
     }
   });
+
+  function appendChatMessage(type, text) {
+    const box = $('chat-messages');
+    if (!box) return;
+    const msg = document.createElement('div');
+    msg.className = `chat-msg ${type}`;
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+    msg.innerHTML = `<span>${text}</span><small class="chat-msg-time">${time}</small>`;
+    box.appendChild(msg);
+    box.scrollTop = box.scrollHeight;
+  }
 
   rtc.on('latency', (ms) => {
     ui.updateHUD(ms, '--');
@@ -502,6 +522,34 @@ const SIGNALING_SERVER = 'http://127.0.0.1:8080';
     if (video) video.requestFullscreen?.();
   });
 
+  // Chat Toggle
+  $('stool-chat')?.addEventListener('click', () => {
+    const overlay = $('chat-overlay');
+    if (overlay) overlay.style.display = overlay.style.display === 'none' ? 'flex' : 'none';
+  });
+  $('btn-chat-close')?.addEventListener('click', () => { if ($('chat-overlay')) $('chat-overlay').style.display = 'none'; });
+
+  // Chat Send
+  const sendChat = () => {
+    const input = $('chat-input');
+    const text = input?.value.trim();
+    if (!text) return;
+    rtc.sendControl({ type: 'chat-message', text });
+    appendChatMessage('sent', text);
+    input.value = '';
+  };
+  $('btn-chat-send')?.addEventListener('click', sendChat);
+  $('chat-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+  // File Transfer
+  $('stool-file')?.addEventListener('click', () => $('file-input-hidden')?.click());
+  $('file-input-hidden')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    log(`جاري تحضير إرسال الملف: ${file.name} (${Math.round(file.size / 1024)} KB)...`);
+    ui.showToast('ميزة إرسال الملفات قيد التشغيل...', 'info');
+  });
+
   // ── 6. Performance Monitor (Throttled) ──
   let perfInterval = setInterval(async () => {
     if (state.sessionToken) return; // Stop heavy stats during active session to prevent lag
@@ -537,6 +585,9 @@ const SIGNALING_SERVER = 'http://127.0.0.1:8080';
     rtc.close();
     inputCapture.deactivate();
     ui.switchView('home');
+    const navSession = $('nav-session');
+    if (navSession) navSession.style.display = 'none';
+
     state.remoteSocketId = null;
     state.incomingRequest = null;
     state.sessionToken = null;

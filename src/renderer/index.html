@@ -24,6 +24,9 @@
         <button class="nav-item active" data-view="home" id="nav-home">
           <i class="fas fa-layer-group"></i><span>لوحة التحكم</span>
         </button>
+        <button class="nav-item nav-session-only" data-view="session" id="nav-session" style="display: none;">
+          <i class="fas fa-desktop"></i><span>الجلسة الحية</span>
+        </button>
         <button class="nav-item" data-view="terminal" id="nav-terminal">
           <i class="fas fa-terminal"></i><span>الطرفية</span>
         </button>
@@ -221,7 +224,7 @@
             </div>
             <div class="setting-row">
               <label>عنوان السيرفر</label>
-              <input type="text" id="set-server" class="setting-input" value="http://127.0.0.1:8080" placeholder="http://...">
+              <input type="text" id="set-server" class="setting-input" value="https://dsd-1.onrender.com" placeholder="https://...">
             </div>
             <button class="btn-save" id="btn-save-settings"><i class="fas fa-check"></i> حفظ الإعدادات</button>
           </div>
@@ -243,9 +246,26 @@
           <div class="session-toolbar" id="session-toolbar">
             <button class="stool" id="stool-fullscreen" title="ملء الشاشة"><i class="fas fa-expand"></i></button>
             <button class="stool" id="stool-screenshot" title="لقطة شاشة"><i class="fas fa-camera"></i></button>
+            <button class="stool" id="stool-file" title="إرسال ملف"><i class="fas fa-file-export"></i></button>
             <button class="stool" id="stool-chat" title="محادثة"><i class="fas fa-message"></i></button>
             <button class="stool stool-end" id="stool-disconnect" title="إنهاء الجلسة"><i class="fas fa-power-off"></i></button>
           </div>
+
+          <!-- Chat Overlay -->
+          <div class="chat-overlay" id="chat-overlay" style="display: none;">
+            <div class="chat-header">
+              <span><i class="fas fa-comments"></i> المحادثة</span>
+              <button class="chat-close" id="btn-chat-close"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input-row">
+              <input type="text" id="chat-input" placeholder="اكتب رسالة..." autocomplete="off">
+              <button id="btn-chat-send"><i class="fas fa-paper-plane"></i></button>
+            </div>
+          </div>
+
+          <!-- File Input Hidden -->
+          <input type="file" id="file-input-hidden" style="display: none;">
         </div>
       </section>
 

@@ -81,13 +81,28 @@ class InputCapture {
     const rect = this.videoEl.getBoundingClientRect();
     const vidW = this.videoEl.videoWidth || 1920;
     const vidH = this.videoEl.videoHeight || 1080;
+    const containerRatio = rect.width / rect.height;
+    const videoRatio = vidW / vidH;
 
-    // Map viewer coordinates to host screen coordinates
-    const scaleX = this._hostScreenSize.width / rect.width;
-    const scaleY = this._hostScreenSize.height / rect.height;
+    let actualW, actualH, offsetX, offsetY;
 
-    const x = Math.round((e.clientX - rect.left) * scaleX);
-    const y = Math.round((e.clientY - rect.top) * scaleY);
+    if (containerRatio > videoRatio) {
+      // Pillarboxed (bars on left/right)
+      actualH = rect.height;
+      actualW = actualH * videoRatio;
+      offsetY = 0;
+      offsetX = (rect.width - actualW) / 2;
+    } else {
+      // Letterboxed (bars on top/bottom)
+      actualW = rect.width;
+      actualH = actualW / videoRatio;
+      offsetX = 0;
+      offsetY = (rect.height - actualH) / 2;
+    }
+
+    // Map relative coordinates to host screen
+    const x = Math.round(((e.clientX - rect.left) - offsetX) * (this._hostScreenSize.width / actualW));
+    const y = Math.round(((e.clientY - rect.top) - offsetY) * (this._hostScreenSize.height / actualH));
 
     // Clamp to screen bounds
     const cx = Math.max(0, Math.min(x, this._hostScreenSize.width - 1));
