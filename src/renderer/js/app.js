@@ -150,8 +150,10 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       const rtc = new RTCEngine();
       setupRTCHandlers(rtc, data.hostSocketId, data.hostDeviceId);
       sessionManager.add(data.hostSocketId, data.hostDeviceId, rtc);
+      
       await rtc.init(true, 'viewer');
       if (data.sessionToken) await rtc.setEncryptionKey(data.sessionToken);
+      
       const offer = await rtc.createOffer();
       signaling.sendOffer(data.hostSocketId, offer);
       ui.addHistory(data.hostDeviceId);
@@ -166,8 +168,15 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         setupRTCHandlers(rtc, data.from, 'Remote');
         session = sessionManager.add(data.from, 'Remote', rtc);
         await rtc.init(false, 'host');
+        
         const token = state.incomingRequest?.sessionToken || data.sessionToken;
         if (token) await rtc.setEncryptionKey(token);
+
+        // Host: Start sharing IMMEDIATELY before answering
+        if (state.isHost) {
+          log('جاري بدء مشاركة الشاشة...');
+          await rtc.startScreenShare();
+        }
       }
       const answer = await session.rtc.createAnswer(data.offer);
       signaling.sendAnswer(data.from, answer);
@@ -198,21 +207,39 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         if (state.activeSessionId === socketId) {
           const video = $('remote-video');
           if (video) {
+            log('تم استلام البث المباشر ✓', 'success');
             video.srcObject = stream;
-            video.play().catch(() => {});
-            $('video-overlay').style.display = 'none';
-            ui.switchView('session');
+            
+            const playVideo = () => {
+              video.play().then(() => {
+                $('video-overlay').style.display = 'none';
+                ui.switchView('session');
+              }).catch(e => {
+                log('بانتظار تفاعل المستخدم لتشغيل الفيديو', 'warning');
+                $('video-overlay').style.display = 'flex';
+              });
+            };
+
+            playVideo();
+            // Fallback click
+            $('video-overlay').onclick = playVideo;
           }
         }
       }
     });
 
+    // Watchdog to ensure video stays playing
+    if (!state.videoWatchdog) {
+      state.videoWatchdog = setInterval(() => {
+        const video = $('remote-video');
+        if (video && video.srcObject && video.paused && !video.ended) {
+          video.play().catch(() => {});
+        }
+      }, 3000);
+    }
+
     rtc.on('datachannel-open', async () => {
-      if (state.isHost) {
-        const stream = await rtc.startScreenShare();
-        const s = state.sessions.get(socketId);
-        if (s) s.stream = stream;
-      }
+      log('قناة البيانات مفتوحة - التحكم نشط', 'success');
     });
 
     rtc.on('control-data', (data) => {

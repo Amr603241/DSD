@@ -353,12 +353,11 @@ class RTCEngine {
         }
       }
 
-      // 2. Advanced WebRTC Stats (Disabled for performance troubleshooting)
-      /*
+      // 2. Advanced WebRTC Stats
       if (this.pc && (this.pc.iceConnectionState === 'connected' || this.pc.iceConnectionState === 'completed')) {
         try {
           const stats = await this.pc.getStats();
-          let videoStats = {};
+          let videoStats = { fps: 0, packetsLost: 0, jitter: 0, bytesReceived: 0 };
           stats.forEach(report => {
             if (report.type === 'inbound-rtp' && report.kind === 'video') {
               videoStats = {
@@ -374,7 +373,6 @@ class RTCEngine {
           this._fire('log-debug', `[STATS ERROR] ${e.message}`);
         }
       }
-      */
     }, 2000);
   }
 
