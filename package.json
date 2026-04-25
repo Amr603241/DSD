@@ -1,0 +1,46 @@
+{
+  "name": "phantomdesk",
+  "version": "1.0.0",
+  "description": "PhantomDesk — Professional Remote Desktop Control System",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "server": "node server/server.js",
+    "dev": "concurrently \"npm run server\" \"electron . --device-id=HOST-123 --no-sandbox\" \"electron . --device-id=CLIENT-456 --no-sandbox\"",
+    "dev:app": "electron .",
+    "dev:server": "node server/server.js",
+    "rebuild": "electron-rebuild",
+    "build": "electron-builder"
+  },
+  "author": "PhantomDesk",
+  "license": "MIT",
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.4.1",
+    "helmet": "^8.1.0",
+    "koffi": "^2.9.0",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.phantomdesk.app",
+    "productName": "PhantomDesk",
+    "asar": true,
+    "compression": "maximum",
+    "files": [
+      "src/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "portable"
+    }
+  }
+}

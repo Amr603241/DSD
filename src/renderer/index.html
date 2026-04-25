@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PhantomDesk | Remote Control</title>
+  <meta name="description" content="PhantomDesk - Professional Remote Desktop Control System">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="styles/phantom.css">
+</head>
+<body>
+
+  <!-- ══════ SIDEBAR ══════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="brand">
+        <div class="brand-icon"><i class="fas fa-ghost"></i></div>
+        <div class="brand-name">PHANTOM<span>DESK</span></div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="home" id="nav-home">
+          <i class="fas fa-layer-group"></i><span>لوحة التحكم</span>
+        </button>
+        <button class="nav-item" data-view="terminal" id="nav-terminal">
+          <i class="fas fa-terminal"></i><span>الطرفية</span>
+        </button>
+        <button class="nav-item" data-view="logs" id="nav-logs">
+          <i class="fas fa-chart-line"></i><span>السجلات</span>
+        </button>
+        <button class="nav-item" data-view="diag" id="nav-diag">
+          <i class="fas fa-microchip"></i><span>التشخيص</span>
+        </button>
+        <button class="nav-item" data-view="settings" id="nav-settings">
+          <i class="fas fa-gear"></i><span>الإعدادات</span>
+        </button>
+      </nav>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="server-badge" id="server-badge">
+        <span class="pulse-dot offline" id="status-dot"></span>
+        <span class="status-label" id="status-label">غير متصل</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════ MAIN AREA ══════ -->
+  <main class="main-area">
+
+    <!-- Title Bar -->
+    <header class="titlebar" id="titlebar">
+      <div class="titlebar-left">
+        <button class="tb-btn" id="btn-sidebar-toggle" title="القائمة"><i class="fas fa-bars"></i></button>
+        <div class="connect-bar">
+          <div class="connect-input-wrap">
+            <i class="fas fa-satellite-dish"></i>
+            <input type="text" id="remote-id-input" placeholder="أدخل معرّف الجهاز..." maxlength="12" autocomplete="off">
+          </div>
+          <button class="btn-connect" id="btn-connect"><i class="fas fa-bolt"></i> اتصال</button>
+        </div>
+      </div>
+      <div class="titlebar-right">
+        <button class="tb-btn" id="btn-minimize" title="تصغير"><i class="fas fa-minus"></i></button>
+        <button class="tb-btn" id="btn-maximize" title="تكبير"><i class="fas fa-expand"></i></button>
+        <button class="tb-btn btn-close" id="btn-close" title="إغلاق"><i class="fas fa-xmark"></i></button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="content" id="content">
+
+      <!-- ── VIEW: HOME ── -->
+      <section class="view active" id="view-home">
+        <div class="home-grid">
+
+          <!-- Identity Card -->
+          <div class="card card-identity" id="card-identity">
+            <div class="card-head">
+              <span class="card-tag"><i class="fas fa-fingerprint"></i> هوية الجهاز</span>
+              <button class="btn-icon" id="btn-copy-id" title="نسخ المعرّف"><i class="far fa-copy"></i></button>
+            </div>
+            <div class="id-display" id="id-display">
+              <span class="id-loading">جاري التحميل...</span>
+            </div>
+            <div class="pwd-row">
+              <div class="pwd-left">
+                <i class="fas fa-key"></i>
+                <span class="pwd-value" id="pwd-display">••••••</span>
+              </div>
+              <div class="pwd-actions">
+                <button class="btn-icon btn-sm" id="btn-toggle-pwd" title="إظهار/إخفاء"><i class="far fa-eye"></i></button>
+                <button class="btn-icon btn-sm" id="btn-refresh-pwd" title="تجديد كلمة المرور"><i class="fas fa-rotate"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Performance -->
+          <div class="card card-perf" id="card-perf">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-gauge-high"></i> مراقب الأداء</span></div>
+            <div class="perf-rings">
+              <div class="ring-box">
+                <svg class="ring-svg" viewBox="0 0 100 100">
+                  <circle class="ring-bg" cx="50" cy="50" r="42"/>
+                  <circle class="ring-fill ring-cpu" cx="50" cy="50" r="42" id="ring-cpu"/>
+                </svg>
+                <div class="ring-label"><span id="cpu-val">0%</span><small>CPU</small></div>
+              </div>
+              <div class="ring-box">
+                <svg class="ring-svg" viewBox="0 0 100 100">
+                  <circle class="ring-bg" cx="50" cy="50" r="42"/>
+                  <circle class="ring-fill ring-ram" cx="50" cy="50" r="42" id="ring-ram"/>
+                </svg>
+                <div class="ring-label"><span id="ram-val">0%</span><small>RAM</small></div>
+              </div>
+            </div>
+            <div class="perf-meta">
+              <span id="hostname-label">—</span>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="card card-actions" id="card-actions">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-bolt"></i> إجراءات سريعة</span></div>
+            <div class="actions-grid">
+              <button class="action-btn" id="act-screenshot"><i class="fas fa-camera"></i><span>لقطة شاشة</span></button>
+              <button class="action-btn" id="act-clipboard"><i class="fas fa-clipboard"></i><span>حافظة</span></button>
+              <button class="action-btn" id="act-lock"><i class="fas fa-lock"></i><span>قفل</span></button>
+              <button class="action-btn danger" id="act-reboot"><i class="fas fa-rotate-right"></i><span>إعادة تشغيل</span></button>
+            </div>
+          </div>
+
+          <!-- Connection History -->
+          <div class="card card-history" id="card-history">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-clock-rotate-left"></i> الاتصالات الأخيرة</span></div>
+            <div class="history-list" id="history-list">
+              <div class="history-empty"><i class="fas fa-inbox"></i><span>لا توجد اتصالات سابقة</span></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── VIEW: TERMINAL ── -->
+      <section class="view" id="view-terminal">
+        <div class="card card-terminal">
+          <div class="term-header"><span><i class="fas fa-terminal"></i> PhantomDesk Terminal</span></div>
+          <div class="term-body" id="term-output"></div>
+          <div class="term-input-row">
+            <span class="term-prompt">❯</span>
+            <input type="text" id="term-input" placeholder="اكتب أمراً..." autocomplete="off">
+          </div>
+        </div>
+      </section>
+
+      <!-- ── VIEW: LOGS ── -->
+      <section class="view" id="view-logs">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-tag"><i class="fas fa-scroll"></i> سجل الأحداث</span>
+            <button class="btn-icon btn-sm" id="btn-clear-logs" title="مسح"><i class="fas fa-trash-can"></i></button>
+          </div>
+          <div class="logs-box" id="logs-box"></div>
+        </div>
+      </section>
+
+      <!-- ── VIEW: DIAGNOSTICS ── -->
+      <section class="view" id="view-diag">
+        <div class="diag-grid">
+          <div class="card diag-card">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-network-wired"></i> حالة الشبكة</span></div>
+            <div class="diag-stats">
+              <div class="diag-stat"><span>ICE State</span><strong id="diag-ice">—</strong></div>
+              <div class="diag-stat"><span>Latency</span><strong id="diag-latency">— ms</strong></div>
+              <div class="diag-stat"><span>Signaling</span><strong id="diag-sig">—</strong></div>
+              <div class="diag-stat"><span>Bitrate</span><strong id="diag-bitrate">— Kbps</strong></div>
+            </div>
+          </div>
+          <div class="card diag-card">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-shield-halved"></i> الأمان</span></div>
+            <div class="diag-stats">
+              <div class="diag-stat"><span>Encryption</span><strong class="text-success">AES-256-GCM</strong></div>
+              <div class="diag-stat"><span>Session ID</span><strong id="diag-session">—</strong></div>
+              <div class="diag-stat"><span>Peer Type</span><strong id="diag-type">—</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="card card-diag-logs">
+          <div class="card-head">
+            <span class="card-tag"><i class="fas fa-bug"></i> تعقب الأخطاء والعمليات</span>
+            <div class="card-actions-row">
+              <button class="btn-icon btn-sm" id="btn-copy-diag" title="نسخ السجلات"><i class="fas fa-copy"></i></button>
+              <button class="btn-icon btn-sm" id="btn-clear-diag" title="مسح"><i class="fas fa-trash-can"></i></button>
+            </div>
+          </div>
+          <div class="diag-console" id="diag-console"></div>
+        </div>
+      </section>
+
+      <!-- ── VIEW: SETTINGS ── -->
+      <section class="view" id="view-settings">
+        <div class="card">
+          <div class="card-head"><span class="card-tag"><i class="fas fa-sliders"></i> الإعدادات</span></div>
+          <div class="settings-list">
+            <div class="setting-row">
+              <label>جودة البث</label>
+              <select id="set-quality">
+                <option value="fast">أداء عالي (Low Quality)</option>
+                <option value="balanced" selected>متوازن (Balanced)</option>
+                <option value="ultra">جودة فائقة (Ultra)</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <label>حماية بكلمة مرور</label>
+              <label class="switch"><input type="checkbox" id="set-password" checked><span class="slider"></span></label>
+            </div>
+            <div class="setting-row">
+              <label>مزامنة الحافظة</label>
+              <label class="switch"><input type="checkbox" id="set-clipboard" checked><span class="slider"></span></label>
+            </div>
+            <div class="setting-row">
+              <label>عنوان السيرفر</label>
+              <input type="text" id="set-server" class="setting-input" value="http://127.0.0.1:8080" placeholder="http://...">
+            </div>
+            <button class="btn-save" id="btn-save-settings"><i class="fas fa-check"></i> حفظ الإعدادات</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── VIEW: REMOTE SESSION ── -->
+      <section class="view" id="view-session">
+        <div class="session-container">
+          <video id="remote-video" autoplay muted playsinline></video>
+          <div id="video-overlay" class="video-overlay">
+            <i class="fas fa-play"></i>
+            <p>اضغط للبدء</p>
+          </div>
+          <div class="session-hud">
+            <span class="hud-stat" id="hud-latency">— ms</span>
+            <span class="hud-stat" id="hud-fps">— FPS</span>
+          </div>
+          <div class="session-toolbar" id="session-toolbar">
+            <button class="stool" id="stool-fullscreen" title="ملء الشاشة"><i class="fas fa-expand"></i></button>
+            <button class="stool" id="stool-screenshot" title="لقطة شاشة"><i class="fas fa-camera"></i></button>
+            <button class="stool" id="stool-chat" title="محادثة"><i class="fas fa-message"></i></button>
+            <button class="stool stool-end" id="stool-disconnect" title="إنهاء الجلسة"><i class="fas fa-power-off"></i></button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ══════ CONNECTION REQUEST MODAL ══════ -->
+  <div class="modal-overlay" id="modal-request">
+    <div class="modal-card">
+      <div class="modal-icon"><i class="fas fa-satellite-dish"></i></div>
+      <h3>طلب اتصال وارد</h3>
+      <p>الجهاز <strong id="req-from-id">---</strong> يطلب التحكم بجهازك</p>
+      <div class="modal-actions">
+        <button class="btn-accept" id="btn-accept"><i class="fas fa-check"></i> قبول</button>
+        <button class="btn-reject" id="btn-reject"><i class="fas fa-xmark"></i> رفض</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ PASSWORD PROMPT MODAL ══════ -->
+  <div class="modal-overlay" id="modal-password">
+    <div class="modal-card">
+      <div class="modal-icon"><i class="fas fa-lock"></i></div>
+      <h3>كلمة المرور مطلوبة</h3>
+      <p>الجهاز محمي. أدخل كلمة المرور للمتابعة:</p>
+      <input type="text" id="password-input" class="modal-input" placeholder="كلمة المرور" autocomplete="off">
+      <div class="modal-actions">
+        <button class="btn-accept" id="btn-pwd-submit"><i class="fas fa-arrow-left"></i> اتصال</button>
+        <button class="btn-reject" id="btn-pwd-cancel"><i class="fas fa-xmark"></i> إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/socket.io.min.js"></script>
+  <script src="js/ui-manager.js"></script>
+  <script src="js/signaling.js"></script>
+  <script src="js/rtc-engine.js"></script>
+  <script src="js/input-capture.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
