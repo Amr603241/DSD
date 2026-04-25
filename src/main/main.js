@@ -4,6 +4,19 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { exec, spawn } = require('child_process');
 
+// ── Single Instance Lock ──
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 // ── Global Logger ──
 function writeToLog(msg) {
   try {
