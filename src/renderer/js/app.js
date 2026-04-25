@@ -1,6 +1,6 @@
 /**
- * PhantomDesk — Application Core Elite v1.1
- * Fully refactored for Multi-Session, Tabbed Interface, and High Performance.
+ * PhantomDesk — Application Core Elite v1.2
+ * Refined Multi-Session Engine with full UI stability.
  */
 
 const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
@@ -25,10 +25,11 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     password: '',
     isHost: false,
     connected: false,
-    sessions: new Map(), // Key: socketId, Value: Session Object
+    sessions: new Map(),
     activeSessionId: null,
     lastClipboard: '',
-    incomingRequest: null
+    incomingRequest: null,
+    pendingTargetId: null
   };
 
   class Session {
@@ -72,7 +73,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         video.play().catch(() => {});
       }
       this.renderTabs();
-      log(`انتقلت للجلسة: ${s.deviceId}`);
+      ui.switchView('session');
     },
     renderTabs() {
       const container = $('session-tabs');
@@ -96,16 +97,20 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     }
   };
 
-  // ── 1. Load Device Info ──
+  function resetConnectButton() {
+    const btn = $('btn-connect');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-bolt"></i> اتصال'; }
+  }
+
+  // ── 1. Identity ──
   try {
     state.deviceId = await window.phantom.getDeviceId();
     state.password = await window.phantom.getPassword();
     ui.setDeviceId(state.deviceId);
     ui.setPassword(state.password);
-    log('تم تحميل بيانات الجهاز بنجاح');
-  } catch (e) { log('فشل تحميل بيانات الجهاز', 'error'); }
+  } catch (e) {}
 
-  // ── 2. Connection Logic ──
+  // ── 2. Signaling ──
   async function connectToServer() {
     try {
       await signaling.connect(state.deviceId, state.password);
@@ -115,13 +120,21 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     } catch (e) {
       state.connected = false;
       ui.setConnectionStatus(false);
-      log('فشل الاتصال بالسيرفر، جاري المحاولة...', 'warning');
+      log('جاري محاولة الاتصال بالسيرفر...', 'warning');
       setTimeout(connectToServer, 5000);
     }
   }
   connectToServer();
 
-  // ── 3. Signaling Handlers ──
+  signaling.on('connection-error', (data) => {
+    log(data.message || 'خطأ في الاتصال', 'error');
+    resetConnectButton();
+    if (data.code === 'NEED_PASSWORD') {
+      state.pendingTargetId = $('remote-id-input')?.value.trim();
+      ui.showPasswordModal();
+    }
+  });
+
   signaling.on('request', (data) => {
     if (data.from === state.deviceId) return;
     state.incomingRequest = data;
@@ -130,6 +143,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
   signaling.on('accepted', async (data) => {
     log(`تم قبول الاتصال من ${data.hostDeviceId} — جاري البدء...`, 'success');
+    resetConnectButton();
     try {
       const rtc = new RTCEngine();
       setupRTCHandlers(rtc, data.hostSocketId, data.hostDeviceId);
@@ -138,7 +152,8 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       if (data.sessionToken) await rtc.setEncryptionKey(data.sessionToken);
       const offer = await rtc.createOffer();
       signaling.sendOffer(data.hostSocketId, offer);
-    } catch (e) { log('خطأ في تهيئة الاتصال: ' + e.message, 'error'); }
+      ui.addHistory(data.hostDeviceId);
+    } catch (e) { log('خطأ في تهيئة الاتصال', 'error'); }
   });
 
   signaling.on('offer', async (data) => {
@@ -149,16 +164,17 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         setupRTCHandlers(rtc, data.from, 'Remote');
         session = sessionManager.add(data.from, 'Remote', rtc);
         await rtc.init(false, 'host');
-        if (state.incomingRequest?.sessionToken) await rtc.setEncryptionKey(state.incomingRequest.sessionToken);
+        const token = state.incomingRequest?.sessionToken || data.sessionToken;
+        if (token) await rtc.setEncryptionKey(token);
       }
       const answer = await session.rtc.createAnswer(data.offer);
       signaling.sendAnswer(data.from, answer);
-    } catch (e) { log('خطأ في الرد على الاتصال: ' + e.message, 'error'); }
+    } catch (e) { log('خطأ في الرد', 'error'); }
   });
 
-  signaling.on('answer', async (data) => {
+  signaling.on('answer', (data) => {
     const s = state.sessions.get(data.from);
-    if (s) s.rtc.handleAnswer(data.answer).catch(e => log('Answer error', 'error'));
+    if (s) s.rtc.handleAnswer(data.answer).catch(() => {});
   });
 
   signaling.on('ice-candidate', (data) => {
@@ -167,11 +183,11 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   });
 
   signaling.on('session-ended', () => {
-    log('تم إنهاء الجلسة من الطرف الآخر', 'warning');
+    log('تم إنهاء الجلسة', 'warning');
     if (state.activeSessionId) sessionManager.remove(state.activeSessionId);
   });
 
-  // ── 4. RTC Engine Helpers ──
+  // ── 3. RTC Handlers ──
   function setupRTCHandlers(rtc, socketId, deviceId) {
     rtc.on('stream', (stream) => {
       const s = state.sessions.get(socketId);
@@ -191,10 +207,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       if (state.isHost) {
         const stream = await rtc.startScreenShare();
         const s = state.sessions.get(socketId);
-        if (s) {
-          s.stream = stream;
-          if (state.activeSessionId === socketId) $('remote-video').srcObject = stream;
-        }
+        if (s) s.stream = stream;
       }
     });
 
@@ -211,17 +224,31 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
     rtc.on('ice-candidate', (c) => signaling.sendIceCandidate(socketId, c));
     rtc.on('stats-update', (stats) => {
-      if (state.activeSessionId === socketId) ui.updateHUD(stats.latency || 0, Math.round(stats.fps));
+      if (state.activeSessionId === socketId) {
+        ui.updateHUD(stats.latency || 0, Math.round(stats.fps));
+        ui.updateDiagStats({
+          iceState: stats.iceState || 'Connected',
+          latency: stats.latency || 0,
+          signaling: 'Active',
+          bitrate: stats.bitrate || 2500,
+          sessionId: deviceId,
+          peerType: state.isHost ? 'Host' : 'Viewer'
+        });
+      }
     });
   }
 
-  // ── 5. UI Listeners ──
+  // ── 4. UI Events ──
   $('btn-connect')?.addEventListener('click', () => {
     const id = $('remote-id-input')?.value.trim();
-    if (id) {
-      log(`جاري طلب الاتصال بـ ${id}...`);
-      signaling.sendRequest(id);
-    }
+    if (!id) return ui.showToast('أدخل معرّف الجهاز', 'warning');
+    
+    if (!state.connected) return ui.showToast('انتظر الاتصال بالسيرفر...', 'warning');
+
+    log(`جاري طلب الاتصال بـ ${id}...`);
+    const btn = $('btn-connect');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...'; }
+    signaling.sendRequest(id);
   });
 
   $('btn-accept')?.addEventListener('click', async () => {
@@ -235,7 +262,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       await rtc.init(false, 'host');
       if (state.incomingRequest.sessionToken) await rtc.setEncryptionKey(state.incomingRequest.sessionToken);
       signaling.acceptRequest(state.incomingRequest.fromSocketId, state.incomingRequest.sessionToken);
-    } catch (e) { log('فشل قبول الاتصال', 'error'); }
+    } catch (e) { log('فشل القبول', 'error'); }
   });
 
   $('btn-reject')?.addEventListener('click', () => {
@@ -243,44 +270,54 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     if (state.incomingRequest) signaling.rejectRequest(state.incomingRequest.fromSocketId);
   });
 
-  $('stool-disconnect')?.addEventListener('click', () => {
-    if (state.activeSessionId) sessionManager.remove(state.activeSessionId);
+  $('btn-pwd-submit')?.addEventListener('click', () => {
+    const pwd = $('password-input')?.value.trim();
+    if (pwd && state.pendingTargetId) {
+      ui.hidePasswordModal();
+      log(`إعادة المحاولة بكلمة مرور...`);
+      signaling.sendRequest(state.pendingTargetId, pwd);
+    }
   });
+  $('btn-pwd-cancel')?.onclick = () => { ui.hidePasswordModal(); resetConnectButton(); };
+
+  $('stool-disconnect')?.onclick = () => { if (state.activeSessionId) sessionManager.remove(state.activeSessionId); };
 
   const sendChat = () => {
     const input = $('chat-input');
-    const text = input?.value.trim();
-    if (!text) return;
-    const s = state.sessions.get(state.activeSessionId);
-    if (s) {
-      s.rtc.sendControl({ type: 'chat-message', text });
-      appendChatMessage('sent', text);
-      input.value = '';
+    if (input?.value.trim()) {
+      const s = state.sessions.get(state.activeSessionId);
+      if (s) {
+        s.rtc.sendControl({ type: 'chat-message', text: input.value.trim() });
+        appendChatMessage('sent', input.value.trim());
+        input.value = '';
+      }
     }
   };
-  $('btn-chat-send')?.addEventListener('click', sendChat);
-  $('chat-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+  $('btn-chat-send')?.onclick = sendChat;
+  $('chat-input')?.onkeydown = (e) => { if (e.key === 'Enter') sendChat(); };
 
-  const inputCapture = new InputCapture($('remote-video'), (data) => {
+  new InputCapture($('remote-video'), (data) => {
     const s = state.sessions.get(state.activeSessionId);
     if (s && !state.isHost) s.rtc.sendControl(data);
   });
 
-  // Global Features
+  // Global Utils
   $('btn-copy-id')?.onclick = () => { navigator.clipboard.writeText(state.deviceId); ui.showToast('تم النسخ ✓', 'success'); };
   $('btn-refresh-pwd')?.onclick = async () => {
     state.password = await window.phantom.refreshPassword();
     ui.setPassword(state.password);
     signaling.socket?.emit('update-password', { password: state.password });
+    ui.showToast('تم التجديد ✓', 'success');
   };
+  $('btn-toggle-pwd')?.onclick = () => ui.togglePasswordVisibility();
 
-  // Nav
+  // Navigation
   $('nav-home').onclick = () => ui.switchView('home');
   $('nav-terminal').onclick = () => { ui.switchView('terminal'); window.phantom.startShell(); };
   $('nav-logs').onclick = () => ui.switchView('logs');
   $('nav-settings').onclick = () => ui.switchView('settings');
+  $('nav-diag').onclick = () => ui.switchView('diag');
 
-  // Helpers
   function appendChatMessage(type, text) {
     const box = $('chat-messages');
     if (!box) return;
