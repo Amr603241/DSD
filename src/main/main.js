@@ -12,8 +12,6 @@ if (deviceIdArg) {
 }
 
 // ── Fix Black Screen Issues / Performance ──
-const fs = require('fs');
-const path = require('path');
 const userData = app.getPath('userData');
 const configPath = path.join(userData, 'phantomdesk-config.json');
 let disableHW = false;
