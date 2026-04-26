@@ -204,29 +204,40 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   // ── 3. RTC Handlers ──
   function setupRTCHandlers(rtc, socketId, deviceId) {
     rtc.on('stream', (stream) => {
-      const s = state.sessions.get(socketId);
-      if (s) {
-        s.stream = stream;
-        if (state.activeSessionId === socketId) {
-          const video = $('remote-video');
-          if (video) {
-            log('تم استلام البث المباشر ✓', 'success');
-            video.srcObject = stream;
-            
-            const playVideo = () => {
-              video.play().then(() => {
-                $('video-overlay').style.display = 'none';
-                ui.switchView('session');
-              }).catch(e => {
-                log('بانتظار تفاعل المستخدم لتشغيل الفيديو', 'warning');
-                $('video-overlay').style.display = 'flex';
-              });
-            };
+      if (state.activeSessionId !== socketId) return;
+      
+      const video = $('remote-video');
+      if (!video) return;
 
-            playVideo();
-            // Fallback click
-            $('video-overlay').onclick = playVideo;
-          }
+      log('تم استلام دفق الفيديو ✓', 'success');
+      
+      // Prevent redundant assignment
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+        
+        const playVideo = () => {
+          video.play().then(() => {
+            log('بدء عرض الشاشة...', 'success');
+            $('video-overlay').style.display = 'none';
+            ui.switchView('session');
+          }).catch(e => {
+            log('بانتظار إذن المتصفح لعرض الفيديو', 'warning');
+            $('video-overlay').style.display = 'flex';
+          });
+        };
+
+        playVideo();
+        $('video-overlay').onclick = playVideo;
+      }
+    });
+
+    // Real-time Visual Monitor
+    rtc.on('stats-update', (stats) => {
+      if (state.activeSessionId === socketId) {
+        const statsEl = $('diag-stats');
+        if (statsEl) {
+          statsEl.innerHTML = `📡 FPS: ${stats.fps} | 📶 Latency: ${state.latency}ms`;
+          statsEl.style.color = stats.fps > 0 ? '#10b981' : '#ef4444';
         }
       }
     });
