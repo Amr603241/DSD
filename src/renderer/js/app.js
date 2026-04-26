@@ -263,36 +263,38 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       }
     });
 
-    // Unified Control Data Handler with PERMISSIONS
     rtc.on('control-data', async (data) => {
-      // If we are viewer, handle ghost cursor and system info from host
-      if (!state.isHost) {
-        if (data.type === 'ghost-cursor') {
-          // Ghost cursor removed to eliminate "double cursor" feeling
-          return;
-        } else if (data.type === 'system-info') {
-          ui.updateSystemDetailedStats(data);
-          if ($('remote-cpu')) $('remote-cpu').innerText = `CPU: ${Math.round(data.cpuLoad || 0)}%`;
-          if ($('remote-ram')) $('remote-ram').innerText = `RAM: ${Math.round(data.ramUsage || 0)}%`;
-          if (data.tasks) renderTasksList(data.tasks);
-        }
-        else if (data.type === 'monitor-list') {
-          renderMonitorsList(data.sources);
+      if (state.isHost) {
+        // --- HOST SIDE: Process Viewer Signals with Permissions ---
+        const canMouse = !($('perm-mouse')) || $('perm-mouse').checked;
+        const canKeys = !($('perm-keyboard')) || $('perm-keyboard').checked;
+        const canClip = !($('perm-clipboard')) || $('perm-clipboard').checked;
+
+        if (state.inputLocked && data.type !== 'lock-input') return;
+
+        if (['mousemove', 'mousedown', 'mouseup', 'dblclick', 'wheel'].includes(data.type)) {
+          if (canMouse) window.phantom.simulateInput(data);
+        } else if (['keydown', 'keyup'].includes(data.type)) {
+          if (canKeys) window.phantom.simulateInput(data);
+        } else if (data.type === 'clipboard-sync') {
+          if (canClip) window.phantom.writeClipboard(data.text);
         } else if (data.type === 'get-files') {
           window.phantom.getFiles(data.path).then(files => {
             rtc.sendControl({ type: 'file-list', files, path: data.path });
           });
-        } else if (data.type === 'file-list') {
-          renderRemoteFiles(data.files, data.path);
         } else if (data.type === 'file-chunk') {
           window.phantom.saveFileChunk(data);
         } else if (data.type === 'switch-monitor') {
           await rtc.startScreenShare(data.sourceId);
+        } else if (data.type === 'privacy-mode') {
+          window.phantom.togglePrivacyMode(data.enabled);
+        } else if (data.type === 'lock-input') {
+          state.inputLocked = data.enabled;
+          ui.showToast(data.enabled ? 'تم قفل إدخال المضيف' : 'تم تفعيل إدخال المضيف', 'info');
+        } else if (data.type === 'refresh-stream') {
+          await rtc.startScreenShare();
         } else if (data.type === 'shortcut') {
           if (data.action === 'cad') {
-            // Note: Ctrl+Alt+Del is special on Windows and cannot be simulated via standard SendInput
-            // for security reasons unless the app is signed and running as SYSTEM/Service.
-            // We use a fallback: Open Task Manager
             window.phantom.simulateInput({ type: 'keydown', code: 'ControlLeft' });
             window.phantom.simulateInput({ type: 'keydown', code: 'ShiftLeft' });
             window.phantom.simulateInput({ type: 'keydown', code: 'Escape' });
@@ -303,40 +305,21 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
             window.phantom.simulateInput({ type: 'keydown', code: 'MetaLeft' });
             window.phantom.simulateInput({ type: 'keyup', code: 'MetaLeft' });
           }
+        } else if (data.type === 'clipboard-sync' && canClip) {
+          window.phantom.writeClipboard(data.text);
         }
-        else if (data.type === 'privacy-mode') {
-          window.phantom.togglePrivacyMode(data.enabled);
+      } else {
+        // --- VIEWER SIDE: Process Host Updates ---
+        if (data.type === 'system-info') {
+          ui.updateSystemDetailedStats(data);
+          if ($('remote-cpu')) $('remote-cpu').innerText = `CPU: ${Math.round(data.cpuLoad || 0)}%`;
+          if ($('remote-ram')) $('remote-ram').innerText = `RAM: ${Math.round(data.ramUsage || 0)}%`;
+          if (data.tasks) renderTasksList(data.tasks);
+        } else if (data.type === 'monitor-list') {
+          renderMonitorsList(data.sources);
+        } else if (data.type === 'file-list') {
+          renderRemoteFiles(data.files, data.path);
         }
-        else if (data.type === 'lock-input') {
-          state.remoteInputLocked = data.enabled;
-          ui.showToast(data.enabled ? 'تم قفل إدخال المضيف' : 'تم تفعيل إدخال المضيف', 'info');
-        }
-        return;
-      }
-
-      // If we are host, handle control input
-      const canMouse = !($('perm-mouse')) || $('perm-mouse').checked;
-      const canKeys = !($('perm-keyboard')) || $('perm-keyboard').checked;
-      const canClip = !($('perm-clipboard')) || $('perm-clipboard').checked;
-      
-      // Input Lock Check
-      if (state.remoteInputLocked) return;
-
-      if (data.type === 'refresh-stream') {
-        log('تلقيت طلباً لتحديث البث...', 'info');
-        await rtc.startScreenShare();
-      } 
-      else if (data.type.startsWith('mouse') || data.type === 'dblclick' || data.type === 'wheel') {
-        if (canMouse) {
-          window.phantom.simulateInput(data);
-          rtc.sendControl({ type: 'ghost-cursor', x: data.x, y: data.y });
-        }
-      } 
-      else if (data.type.startsWith('key')) {
-        if (canKeys) window.phantom.simulateInput(data);
-      } 
-      else if (data.type === 'clipboard-sync' && canClip) {
-        window.phantom.writeClipboard(data.text);
       }
     });
 
