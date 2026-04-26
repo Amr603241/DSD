@@ -73,12 +73,23 @@ class RTCEngine {
       // Viewer Side: Explicitly request video to ensure SDP has m=video line
       this.pc.addTransceiver('video', { direction: 'recvonly' });
       // Create DataChannel
-      this.dataChannel = this.pc.createDataChannel('phantom-control', { ordered: false, maxRetransmits: 0 });
-      this._setupDataChannel(this.dataChannel);
+      this.dataChannel = this.pc.createDataChannel('control', { ordered: true });
+    this.fastChannel = this.pc.createDataChannel('mouse-turbo', { 
+      ordered: false, 
+      maxRetransmits: 0 
+    });
+    
+    this._setupDataChannel(this.dataChannel);
+    this._setupDataChannel(this.fastChannel);
     } else {
       this.pc.ondatachannel = (e) => {
-        this.dataChannel = e.channel;
-        this._setupDataChannel(this.dataChannel);
+        const channel = e.channel;
+        if (channel.label === 'mouse-turbo') {
+          this.fastChannel = channel;
+        } else {
+          this.dataChannel = channel;
+        }
+        this._setupDataChannel(channel);
       };
     }
   }
@@ -232,8 +243,12 @@ class RTCEngine {
   }
 
   async sendControl(data) {
-    if (this.dataChannel?.readyState === 'open') {
-      this.dataChannel.send(JSON.stringify(data));
+    const channel = (data.type === 'mousemove' && this.fastChannel && this.fastChannel.readyState === 'open') 
+      ? this.fastChannel 
+      : this.dataChannel;
+
+    if (channel && channel.readyState === 'open') {
+      channel.send(JSON.stringify(data));
     }
   }
 
