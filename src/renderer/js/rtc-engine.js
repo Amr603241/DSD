@@ -50,7 +50,8 @@ class RTCEngine {
     };
 
     if (isOfferer) {
-      // Create DataChannel first
+      // Viewer Side: Explicitly request video
+      this.pc.addTransceiver('video', { direction: 'recvonly' });
       this.dataChannel = this.pc.createDataChannel('phantom-control', { ordered: false, maxRetransmits: 0 });
       this._setupDataChannel(this.dataChannel);
     } else {
