@@ -184,21 +184,38 @@ class RTCEngine {
   }
 
   _startLatencyMonitor() {
-    setInterval(async () => {
-      if (this.dataChannel?.readyState === 'open') {
-        const id = Math.random().toString(36).substring(7);
-        this._latencyPings.set(id, Date.now());
-        this.sendControl({ type: 'ping', id });
-      }
-      if (this.pc) {
+    if (this._statsInterval) clearInterval(this._statsInterval);
+    
+    this._statsInterval = setInterval(async () => {
+      if (!this.pc) return;
+      
+      try {
         const stats = await this.pc.getStats();
+        let fps = 0;
+        let latency = 0;
+        
         stats.forEach(r => {
+          // Monitor Inbound (Viewer side)
           if (r.type === 'inbound-rtp' && r.kind === 'video') {
-            this._fire('stats-update', { fps: Math.round(r.framesPerSecond || 0), latency: 0 });
+            fps = Math.round(r.framesPerSecond || 0);
+          }
+          // Monitor Outbound (Host side)
+          if (r.type === 'outbound-rtp' && r.kind === 'video') {
+            fps = Math.round(r.framesPerSecond || 0);
+          }
+          // Monitor Latency (Round Trip Time)
+          if (r.type === 'candidate-pair' && r.state === 'succeeded') {
+            latency = Math.round((r.currentRoundTripTime || 0) * 1000);
           }
         });
-      }
-    }, 2000);
+
+        this._fire('stats-update', { 
+          fps, 
+          latency, 
+          iceState: this.pc.iceConnectionState 
+        });
+      } catch (err) {}
+    }, 1000);
   }
 
   _createTestStream() {

@@ -242,10 +242,14 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     // Unified Stats Monitor
     rtc.on('stats-update', (stats) => {
       if (state.activeSessionId === socketId) {
-        ui.updateHUD(stats.latency || 0, Math.round(stats.fps));
+        // Ensure values are numbers for the HUD
+        const currentFps = Math.round(stats.fps || 0);
+        const currentLatency = Math.round(stats.latency || 0);
+        
+        ui.updateHUD(currentLatency, currentFps);
         ui.updateDiagStats({
           iceState: stats.iceState || 'Connected',
-          latency: stats.latency || 0,
+          latency: currentLatency,
           signaling: 'Active',
           bitrate: stats.bitrate || 2500,
           sessionId: deviceId,
