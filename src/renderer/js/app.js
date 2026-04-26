@@ -392,10 +392,11 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   $('btn-chat-send')?.addEventListener('click', sendChat);
   $('chat-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
 
-  new InputCapture($('remote-video'), (data) => {
+  const inputCapture = new InputCapture((data) => {
     const s = state.sessions.get(state.activeSessionId);
     if (s && !state.isHost) s.rtc.sendControl(data);
   });
+  inputCapture.activate($('remote-video'));
 
   // Global Utils
   $('btn-copy-id')?.addEventListener('click', () => {

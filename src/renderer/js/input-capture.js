@@ -4,8 +4,8 @@
  * and sends them to the host via DataChannel.
  */
 class InputCapture {
-  constructor(rtcEngine) {
-    this.rtc = rtcEngine;
+  constructor(onControlData) {
+    this.onData = onControlData;
     this.enabled = false;
     this._bound = {};
     this._hostScreenSize = null;
@@ -33,7 +33,7 @@ class InputCapture {
     this._bound.dblclick  = (e) => this._sendMouse('dblclick', e);
     this._bound.wheel     = (e) => {
       if (!this.enabled) return;
-      this.rtc.sendControl({ type: 'wheel', deltaY: e.deltaY, deltaX: e.deltaX });
+      this.onData({ type: 'wheel', deltaY: e.deltaY, deltaX: e.deltaX });
       e.preventDefault();
     };
 
@@ -107,8 +107,7 @@ class InputCapture {
     // Clamp to screen bounds
     const cx = Math.max(0, Math.min(x, this._hostScreenSize.width - 1));
     const cy = Math.max(0, Math.min(y, this._hostScreenSize.height - 1));
-
-    this.rtc.sendControl({ type, x: cx, y: cy, button: e.button });
+    this.onData({ type, x: cx, y: cy, button: e.button });
   }
 
   _sendKey(type, e) {
@@ -121,7 +120,7 @@ class InputCapture {
     e.preventDefault();
     e.stopPropagation();
 
-    this.rtc.sendControl({
+    this.onData({
       type,
       code: e.code,
       key: e.key,
