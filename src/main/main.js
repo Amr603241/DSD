@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, session, clipboard, screen, shell } = require('electron');
+const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');

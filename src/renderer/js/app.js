@@ -367,12 +367,15 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   });
 
   $('stool-cad')?.addEventListener('click', () => {
-    rtc.sendControl({ type: 'shortcut', action: 'cad' });
-    ui.showToast('جاري إرسال اختصار لوحة المفاتيح...', 'info');
+    const s = state.sessions.get(state.activeSessionId);
+    if (s) {
+      s.rtc.sendControl({ type: 'shortcut', action: 'cad' });
+      ui.showToast('جاري إرسال اختصار لوحة المفاتيح...', 'info');
+    }
   });
 
   $('stool-win')?.addEventListener('click', () => {
-    rtc.sendControl({ type: 'shortcut', action: 'win' });
+    state.sessions.get(state.activeSessionId)?.rtc.sendControl({ type: 'shortcut', action: 'win' });
   });
 
   let mediaRecorder = null;
@@ -429,7 +432,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       btn.style.textAlign = 'left';
       btn.innerHTML = `<i class="fas fa-desktop"></i> ${s.name}`;
       btn.onclick = () => {
-        rtc.sendControl({ type: 'switch-monitor', sourceId: s.id });
+        state.sessions.get(state.activeSessionId)?.rtc.sendControl({ type: 'switch-monitor', sourceId: s.id });
         ui.showToast(`جاري التحويل إلى ${s.name}...`, 'info');
       };
       list.appendChild(btn);
@@ -441,7 +444,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     ui.switchView('files');
     loadLocalFiles();
     if (state.activeSessionId) {
-      rtc.sendControl({ type: 'get-files', path: null });
+      state.sessions.get(state.activeSessionId)?.rtc.sendControl({ type: 'get-files', path: null });
     }
   });
 
@@ -476,7 +479,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         <span class="f-name">${f.name}</span>
         <span class="f-size">${f.isDir ? '' : formatSize(f.size)}</span>
       `;
-      if (f.isDir) item.onclick = () => rtc.sendControl({ type: 'get-files', path: f.path });
+      if (f.isDir) item.onclick = () => state.sessions.get(state.activeSessionId)?.rtc.sendControl({ type: 'get-files', path: f.path });
       list.appendChild(item);
     });
     if (path) $('remote-path').value = path;
@@ -515,7 +518,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       const blob = file.slice(start, end);
       const buffer = await blob.arrayBuffer();
       
-      rtc.sendControl({
+      state.sessions.get(state.activeSessionId)?.rtc.sendControl({
         type: 'file-chunk',
         id,
         name: file.name,
@@ -552,14 +555,14 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
   $('stool-privacy')?.addEventListener('click', () => {
     state.privacyActive = !state.privacyActive;
-    rtc.sendControl({ type: 'privacy-mode', enabled: state.privacyActive });
+    state.sessions.get(state.activeSessionId)?.rtc.sendControl({ type: 'privacy-mode', enabled: state.privacyActive });
     $('stool-privacy').classList.toggle('active', state.privacyActive);
     ui.showToast(state.privacyActive ? 'تم تفعيل وضع الخصوصية' : 'تم إيقاف وضع الخصوصية', 'info');
   });
 
   $('stool-lock')?.addEventListener('click', () => {
     state.inputLocked = !state.inputLocked;
-    rtc.sendControl({ type: 'lock-input', enabled: state.inputLocked });
+    state.sessions.get(state.activeSessionId)?.rtc.sendControl({ type: 'lock-input', enabled: state.inputLocked });
     $('stool-lock').classList.toggle('active', state.inputLocked);
     ui.showToast(state.inputLocked ? 'تم قفل التحكم لدى البعيد' : 'تم إطلاق التحكم لدى البعيد', 'info');
   });
@@ -788,7 +791,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   }
 
   function renderHistory() {
-    const container = $('recent-list');
+    const container = $('history-list');
     if (!container) return;
     const history = JSON.parse(localStorage.getItem('phantom_history') || '[]');
     container.innerHTML = history.length ? '' : '<p class="empty-text">لا يوجد تاريخ اتصالات</p>';
