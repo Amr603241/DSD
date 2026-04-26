@@ -382,6 +382,61 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   $('nav-settings')?.addEventListener('click', () => ui.switchView('settings'));
   $('nav-diag')?.addEventListener('click', () => ui.switchView('diag'));
 
+  // Local Screen Capture Test
+  $('btn-test-capture')?.addEventListener('click', async () => {
+    const btn = $('btn-test-capture');
+    const container = $('local-test-container');
+    const video = $('local-test-video');
+    const status = $('local-test-status');
+    
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+      container.style.display = 'none';
+      btn.innerHTML = '<i class="fas fa-camera"></i> بدء الاختبار';
+      return;
+    }
+
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الالتقاط...';
+    container.style.display = 'block';
+    status.innerText = 'جاري طلب إذن الشاشة...';
+    status.style.background = 'rgba(234,179,8,0.8)';
+
+    try {
+      const sources = await window.phantom.getScreenSources();
+      if (!sources || sources.length === 0) throw new Error('لا توجد شاشات متاحة');
+      
+      const screen = sources.find(s => s.id.startsWith('screen:1') || s.name.toLowerCase().includes('entire')) || sources[0];
+      status.innerText = `التقاط: ${screen.name}`;
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: screen.id,
+            minWidth: 1280,
+            maxWidth: 1920,
+            minHeight: 720,
+            maxHeight: 1080
+          }
+        }
+      });
+      
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        video.play();
+        status.innerText = 'تم الالتقاط بنجاح ✓ (إذا كانت الشاشة سوداء فهناك مشكلة في كارت الشاشة أو الصلاحيات)';
+        status.style.background = 'rgba(16,185,129,0.8)';
+        btn.innerHTML = '<i class="fas fa-stop"></i> إيقاف';
+      };
+    } catch (e) {
+      status.innerText = `فشل: ${e.message}`;
+      status.style.background = 'rgba(239,68,68,0.8)';
+      btn.innerHTML = '<i class="fas fa-camera"></i> إعادة المحاولة';
+    }
+  });
+
   function appendChatMessage(type, text) {
     const box = $('chat-messages');
     if (!box) return;

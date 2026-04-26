@@ -2,7 +2,14 @@ const { app, BrowserWindow, ipcMain, desktopCapturer, session, clipboard, screen
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { exec, spawn } = require('child_process');
+// ── App Initialization (Must be before Single Instance Lock) ──
+const deviceIdArg = process.argv.find(a => a.startsWith('--device-id='));
+if (deviceIdArg) {
+  const customId = deviceIdArg.split('=')[1];
+  const userDataPath = path.join(app.getPath('userData'), '..', `phantomdesk-${customId}`);
+  if (!fs.existsSync(userDataPath)) fs.mkdirSync(userDataPath, { recursive: true });
+  app.setPath('userData', userDataPath);
+}
 
 // ── Fix Black Screen Issues ──
 app.disableHardwareAcceleration();
@@ -56,14 +63,7 @@ app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 app.commandLine.appendSwitch('allow-http-screen-capture');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 
-// ── App Initialization ──
-const deviceIdArg = process.argv.find(a => a.startsWith('--device-id='));
-if (deviceIdArg) {
-  const customId = deviceIdArg.split('=')[1];
-  const userDataPath = path.join(app.getPath('userData'), '..', `phantomdesk-${customId}`);
-  if (!fs.existsSync(userDataPath)) fs.mkdirSync(userDataPath, { recursive: true });
-  app.setPath('userData', userDataPath);
-}
+// ── App Configuration Flags ──
 
 let mainWindow;
 let inputHandler = null;
