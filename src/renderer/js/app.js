@@ -272,6 +272,22 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
           if ($('remote-ram')) $('remote-ram').innerText = `RAM: ${Math.round(data.ramUsage || 0)}%`;
           if (data.tasks) renderTasksList(data.tasks);
         }
+        else if (data.type === 'shortcut') {
+          if (data.action === 'cad') {
+            // Note: Ctrl+Alt+Del is special on Windows and cannot be simulated via standard SendInput
+            // for security reasons unless the app is signed and running as SYSTEM/Service.
+            // We use a fallback: Open Task Manager
+            window.phantom.simulateInput({ type: 'keydown', code: 'ControlLeft' });
+            window.phantom.simulateInput({ type: 'keydown', code: 'ShiftLeft' });
+            window.phantom.simulateInput({ type: 'keydown', code: 'Escape' });
+            window.phantom.simulateInput({ type: 'keyup', code: 'Escape' });
+            window.phantom.simulateInput({ type: 'keyup', code: 'ShiftLeft' });
+            window.phantom.simulateInput({ type: 'keyup', code: 'ControlLeft' });
+          } else if (data.action === 'win') {
+            window.phantom.simulateInput({ type: 'keydown', code: 'MetaLeft' });
+            window.phantom.simulateInput({ type: 'keyup', code: 'MetaLeft' });
+          }
+        }
         else if (data.type === 'privacy-mode') {
           window.phantom.togglePrivacyMode(data.enabled);
         }
@@ -349,6 +365,50 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     } else {
       ui.showToast('لا توجد شاشات إضافية', 'info');
     }
+  });
+
+  $('stool-cad')?.addEventListener('click', () => {
+    rtc.sendControl({ type: 'shortcut', action: 'cad' });
+    ui.showToast('جاري إرسال اختصار لوحة المفاتيح...', 'info');
+  });
+
+  $('stool-win')?.addEventListener('click', () => {
+    rtc.sendControl({ type: 'shortcut', action: 'win' });
+  });
+
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  $('stool-rec')?.addEventListener('click', () => {
+    const btn = $('stool-rec');
+    if (state.isRecording) {
+      mediaRecorder.stop();
+      state.isRecording = false;
+      btn.classList.remove('recording');
+      btn.style.color = '';
+      return;
+    }
+
+    const video = $('remote-video');
+    if (!video.srcObject) return;
+
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(video.srcObject, { mimeType: 'video/webm;codecs=vp9' });
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PhantomSession_${new Date().getTime()}.webm`;
+      a.click();
+      ui.showToast('تم حفظ تسجيل الجلسة ✓', 'success');
+    };
+    
+    mediaRecorder.start();
+    state.isRecording = true;
+    btn.classList.add('recording');
+    btn.style.color = 'var(--danger)';
+    ui.showToast('بدأ تسجيل الجلسة...', 'info');
   });
 
   $('stool-privacy')?.addEventListener('click', () => {

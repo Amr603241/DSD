@@ -19,12 +19,10 @@ const MOUSEEVENTF_RIGHTDOWN  = 0x0008;
 const MOUSEEVENTF_RIGHTUP    = 0x0010;
 const MOUSEEVENTF_MIDDLEDOWN = 0x0020;
 const MOUSEEVENTF_MIDDLEUP   = 0x0040;
-const MOUSEEVENTF_WHEEL      = 0x0800;
-const MOUSEEVENTF_ABSOLUTE   = 0x8000;
-const MOUSEEVENTF_VIRTUALDESK = 0x4000;
-
 const KEYEVENTF_KEYUP        = 0x0002;
 const KEYEVENTF_EXTENDEDKEY  = 0x0001;
+const KEYEVENTF_SCANCODE     = 0x0008;
+const KEYEVENTF_UNICODE      = 0x0004;
 
 // ── koffi Structures ──
 let MOUSEINPUT, KEYBDINPUT, INPUT;
@@ -227,7 +225,20 @@ function handleInput(data) {
     case 'keydown': {
       const vk = VK_MAP[data.code] || (data.key && data.key.length === 1 ? data.key.toUpperCase().charCodeAt(0) : null);
       if (vk) {
-        const flags = EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0;
+        let flags = EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0;
+        // Use MapVirtualKey to get scancode for better compatibility
+        try {
+          const MapVirtualKey = user32.func('uint32 __stdcall MapVirtualKeyA(uint32, uint32)');
+          const scan = MapVirtualKey(vk, 0);
+          if (scan) {
+            flags |= KEYEVENTF_SCANCODE;
+            sendInputs([{
+              type: INPUT_KEYBOARD,
+              u: { ki: { wVk: 0, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
+            }]);
+            return;
+          }
+        } catch {}
         sendInputs([createKeyInput(vk, flags)]);
       }
       break;
@@ -236,7 +247,19 @@ function handleInput(data) {
     case 'keyup': {
       const vk = VK_MAP[data.code] || (data.key && data.key.length === 1 ? data.key.toUpperCase().charCodeAt(0) : null);
       if (vk) {
-        const flags = KEYEVENTF_KEYUP | (EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0);
+        let flags = KEYEVENTF_KEYUP | (EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0);
+        try {
+          const MapVirtualKey = user32.func('uint32 __stdcall MapVirtualKeyA(uint32, uint32)');
+          const scan = MapVirtualKey(vk, 0);
+          if (scan) {
+            flags |= KEYEVENTF_SCANCODE;
+            sendInputs([{
+              type: INPUT_KEYBOARD,
+              u: { ki: { wVk: 0, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
+            }]);
+            return;
+          }
+        } catch {}
         sendInputs([createKeyInput(vk, flags)]);
       }
       break;

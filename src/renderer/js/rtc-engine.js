@@ -131,8 +131,13 @@ class RTCEngine {
       
       this._fire('log-debug', `[RTC] Final Selection: ${screen.name} (${screen.id})`);
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: screen.id
+          }
+        },
         video: {
           mandatory: {
             chromeMediaSource: 'desktop',
@@ -141,12 +146,13 @@ class RTCEngine {
             maxWidth: 1920,
             minHeight: 720,
             maxHeight: 1080,
-            maxFrameRate: 60 // Boosted for fluidity
+            minFrameRate: 30,
+            maxFrameRate: 60
           }
         }
       });
 
-      const track = stream.getVideoTracks()[0];
+      const track = this.localStream.getVideoTracks()[0];
       if (track) {
         // RADICAL PERFORMANCE TUNING: Prioritize Latency over Resolution
         if (track.contentHint !== undefined) {
