@@ -121,7 +121,21 @@ class RTCEngine {
 
   async _handleNewStream(stream) {
     this.localStream = stream;
-    stream.getTracks().forEach(track => this.pc.addTrack(track, stream));
+    const videoTrack = stream.getVideoTracks()[0];
+    
+    if (videoTrack) {
+      const transceivers = this.pc.getTransceivers();
+      const videoTransceiver = transceivers.find(t => t.receiver && t.receiver.track && t.receiver.track.kind === 'video' || t.sender && t.sender.track && t.sender.track.kind === 'video' || t.mid !== null);
+      
+      if (videoTransceiver && videoTransceiver.sender) {
+        this._fire('log-debug', '[RTC] Replacing track on existing transceiver');
+        await videoTransceiver.sender.replaceTrack(videoTrack);
+        videoTransceiver.direction = 'sendonly';
+      } else {
+        this._fire('log-debug', '[RTC] Adding new track to PC');
+        this.pc.addTrack(videoTrack, stream);
+      }
+    }
     return stream;
   }
 
