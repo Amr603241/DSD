@@ -71,11 +71,21 @@ class InputCapture {
   _sendMouse(type, e) {
     if (!this.enabled || !this.videoEl) return;
 
-    // Throttle mousemove to ~30fps (33ms)
+    // TURBO PERFORMANCE: Throttle mousemove to ~80fps (12ms) for instant response
     if (type === 'mousemove') {
       const now = Date.now();
-      if (this._lastMove && (now - this._lastMove < 33)) return;
+      if (this._lastMove && (now - this._lastMove < 12)) return;
+      
+      // MINIMUM DELTA: Only send if moved significantly
+      if (this._lastX !== undefined && this._lastY !== undefined) {
+        const dx = Math.abs(e.clientX - this._lastX);
+        const dy = Math.abs(e.clientY - this._lastY);
+        if (dx < 1 && dy < 1) return;
+      }
+      
       this._lastMove = now;
+      this._lastX = e.clientX;
+      this._lastY = e.clientY;
     }
 
     const rect = this.videoEl.getBoundingClientRect();

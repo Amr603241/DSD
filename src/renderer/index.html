@@ -305,6 +305,9 @@
             <!-- Tabs injected via JS -->
             <button class="btn-new-session" id="btn-add-tab" title="اتصال جديد"><i class="fas fa-plus"></i></button>
           </div>
+          <!-- Ghost Cursor -->
+          <div id="ghost-cursor" class="ghost-cursor" style="display: none;"></div>
+
           <video id="remote-video" autoplay muted playsinline></video>
           <div id="video-overlay" class="video-overlay">
             <i class="fas fa-play"></i>
@@ -316,9 +319,10 @@
           </div>
           <div class="session-toolbar" id="session-toolbar">
             <button class="stool" id="stool-refresh" title="تحديث البث"><i class="fas fa-sync-alt"></i></button>
+            <button class="stool" id="stool-monitors" title="تبديل الشاشات"><i class="fas fa-desktop"></i></button>
+            <button class="stool stool-turbo" id="stool-turbo" title="Turbo Mode (أداء فائق)"><i class="fas fa-gauge-high"></i></button>
             <button class="stool" id="stool-fullscreen" title="ملء الشاشة"><i class="fas fa-expand"></i></button>
             <button class="stool" id="stool-screenshot" title="لقطة شاشة"><i class="fas fa-camera"></i></button>
-            <button class="stool" id="stool-file" title="إرسال ملف"><i class="fas fa-file-export"></i></button>
             <button class="stool" id="stool-chat" title="محادثة"><i class="fas fa-message"></i></button>
             <button class="stool stool-end" id="stool-disconnect" title="إنهاء الجلسة"><i class="fas fa-power-off"></i></button>
           </div>

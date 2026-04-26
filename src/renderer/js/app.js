@@ -260,9 +260,25 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
     // Unified Control Data Handler with PERMISSIONS
     rtc.on('control-data', async (data) => {
-      if (!state.isHost) return;
+      // If we are viewer, handle ghost cursor from host
+      if (!state.isHost) {
+        if (data.type === 'ghost-cursor') {
+          const ghost = $('ghost-cursor');
+          const video = $('remote-video');
+          if (ghost && video) {
+            const rect = video.getBoundingClientRect();
+            // Simple mapping for now
+            const gx = (data.x / 1920) * rect.width;
+            const gy = (data.y / 1080) * rect.height;
+            ghost.style.left = `${gx}px`;
+            ghost.style.top = `${gy}px`;
+            ghost.style.display = 'block';
+          }
+        }
+        return;
+      }
 
-      // Permission Check (Default to true if UI not found)
+      // If we are host, handle control input
       const canMouse = !($('perm-mouse')) || $('perm-mouse').checked;
       const canKeys = !($('perm-keyboard')) || $('perm-keyboard').checked;
       const canClip = !($('perm-clipboard')) || $('perm-clipboard').checked;
@@ -271,18 +287,18 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         log('تلقيت طلباً لتحديث البث...', 'info');
         await rtc.startScreenShare();
       } 
-      // Handle all mouse event types
       else if (data.type.startsWith('mouse') || data.type === 'dblclick' || data.type === 'wheel') {
-        if (canMouse) window.phantom.simulateInput(data);
+        if (canMouse) {
+          window.phantom.simulateInput(data);
+          // Send back ghost cursor position
+          rtc.sendControl({ type: 'ghost-cursor', x: data.x, y: data.y });
+        }
       } 
-      // Handle all keyboard event types
       else if (data.type.startsWith('key')) {
         if (canKeys) window.phantom.simulateInput(data);
       } 
       else if (data.type === 'clipboard-sync' && canClip) {
         window.phantom.writeClipboard(data.text);
-      } else if (data.type === 'chat-message') {
-        appendChatMessage('received', data.text);
       }
     });
 
@@ -304,6 +320,40 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     rtc.on('re-offer', (offer) => signaling.sendOffer(socketId, offer));
   }
 
+  // Professional Session Tools
+  $('stool-monitors')?.addEventListener('click', async () => {
+    log('جاري جلب قائمة الشاشات المتاحة...', 'info');
+    const sources = await window.phantom.getScreenSources();
+    if (sources && sources.length > 1) {
+      const rtc = state.sessions.get(state.activeSessionId)?.rtc;
+      if (rtc) {
+        log('تبديل الشاشة النشطة...', 'success');
+        await rtc.startScreenShare(); 
+      }
+    } else {
+      ui.showToast('لا توجد شاشات إضافية', 'info');
+    }
+  });
+
+  $('stool-turbo')?.addEventListener('click', () => {
+    const btn = $('stool-turbo');
+    btn.classList.toggle('active');
+    const isTurbo = btn.classList.contains('active');
+    log(isTurbo ? 'تم تفعيل وضع التوربو 🚀' : 'تم العودة للوضع العادي', isTurbo ? 'success' : 'info');
+  });
+
+  $('stool-screenshot')?.addEventListener('click', async () => {
+    log('جاري التقاط لقطة شاشة...', 'info');
+    const dataUrl = await window.phantom.takeScreenshot();
+    if (dataUrl) {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `Phantom_Shot_${Date.now()}.png`;
+      link.click();
+      ui.showToast('تم حفظ لقطة الشاشة ✓', 'success');
+    }
+  });
+
   // ── 4. UI Events ──
   
   // Quality Switching
@@ -313,7 +363,6 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       btn.classList.add('active');
       const quality = btn.dataset.quality;
       log(`تم تغيير جودة البث إلى: ${quality}`, 'info');
-      // In a real RTC app, we would re-negotiate constraints here.
     });
   });
 
@@ -332,6 +381,33 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     const link = `phantomdesk://connect/${state.deviceId}`;
     navigator.clipboard.writeText(link);
     ui.showToast('تم نسخ رابط الاتصال ✓', 'success');
+  });
+
+  // Standard Toolbar
+  $('stool-refresh')?.addEventListener('click', () => {
+    const s = state.sessions.get(state.activeSessionId);
+    if (s) {
+      log('جاري طلب تحديث البث من المضيف...', 'info');
+      s.rtc.sendControl({ type: 'refresh-stream' });
+    }
+  });
+
+  $('stool-fullscreen')?.addEventListener('click', () => {
+    const v = $('remote-video');
+    if (v?.requestFullscreen) v.requestFullscreen();
+  });
+
+  $('stool-chat')?.addEventListener('click', () => {
+    const overlay = $('chat-overlay');
+    if (overlay) overlay.style.display = overlay.style.display === 'none' ? 'flex' : 'none';
+  });
+
+  $('btn-chat-close')?.addEventListener('click', () => {
+    if ($('chat-overlay')) $('chat-overlay').style.display = 'none';
+  });
+
+  $('stool-disconnect')?.addEventListener('click', () => {
+    if (state.activeSessionId) sessionManager.remove(state.activeSessionId);
   });
 
   $('btn-connect')?.addEventListener('click', () => {

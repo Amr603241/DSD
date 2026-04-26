@@ -657,6 +657,26 @@ input:checked + .slider::before { transform:translateX(20px); }
   .home-grid { grid-template-columns:1fr; }
 }
 
+/* ── Ghost Cursor ── */
+.ghost-cursor {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: rgba(16, 185, 129, 0.6);
+  border: 2px solid #10b981;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transition: all 0.05s linear;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.stool-turbo.active {
+  background: linear-gradient(135deg, #f59e0b, #ef4444) !important;
+  color: white !important;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+}
+
 /* ── Floating Mini-Player (PiP) ── */
 .pip-mode #view-session {
   display: block !important;
