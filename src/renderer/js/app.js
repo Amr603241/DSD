@@ -174,14 +174,22 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         
         const token = state.incomingRequest?.sessionToken || data.sessionToken;
         if (token) await rtc.setEncryptionKey(token);
-
-        // Host: Start sharing IMMEDIATELY before answering
-        if (state.isHost) {
-          log('جاري بدء مشاركة الشاشة...');
-          await rtc.startScreenShare();
-        }
       }
-      const answer = await session.rtc.createAnswer(data.offer);
+      
+      // STRICT NEGOTIATION ORDER: 
+      // 1. setRemoteDescription
+      await session.rtc.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      
+      // 2. Add Track
+      if (state.isHost && !session.rtc.localStream) {
+        log('جاري بدء مشاركة الشاشة...');
+        await session.rtc.startScreenShare();
+      }
+
+      // 3. createAnswer
+      const answer = await session.rtc.pc.createAnswer();
+      await session.rtc.pc.setLocalDescription(answer);
+      
       signaling.sendAnswer(data.from, answer);
     } catch (e) { log('خطأ في الرد', 'error'); }
   });

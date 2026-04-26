@@ -122,7 +122,7 @@ class RTCEngine {
 
   async createOffer() {
     // No SDP mangling for maximum stability
-    const offer = await this.pc.createOffer({ offerToReceiveVideo: true });
+    const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
     return offer;
   }
