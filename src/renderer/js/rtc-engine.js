@@ -1,6 +1,6 @@
 /**
- * PhantomDesk — WebRTC Engine v1.3 (Elite Edition)
- * Robust Media Core: Firewall Bypass + Auto-Negotiation + Anti-Black Screen
+ * PhantomDesk — WebRTC Engine v1.4 (Elite Edition)
+ * Stability Core: No-Mangle Handshake + Standard Tracks + Firewall Bypass
  */
 class RTCEngine {
   constructor() {
@@ -15,21 +15,17 @@ class RTCEngine {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun.stunprotocol.org:3478' },
         {
           urls: [
             'turn:openrelay.metered.ca:80',
             'turn:openrelay.metered.ca:443',
-            'turn:openrelay.metered.ca:3478?transport=udp',
-            'turn:openrelay.metered.ca:3478?transport=tcp'
+            'turn:openrelay.metered.ca:3478?transport=udp'
           ],
           username: 'openrelayproject',
           credential: 'openrelayproject'
         }
       ],
-      iceCandidatePoolSize: 10,
-      bundlePolicy: 'max-bundle'
+      iceCandidatePoolSize: 10
     };
   }
 
@@ -42,7 +38,7 @@ class RTCEngine {
     };
 
     this.pc.ontrack = (e) => {
-      this._fire('log-debug', `[RTC] Track received: ${e.track.kind}`);
+      this._fire('log-debug', `[RTC] Track event: ${e.track.kind}`);
       const stream = e.streams[0] || new MediaStream([e.track]);
       this._fire('stream', stream);
     };
@@ -50,18 +46,14 @@ class RTCEngine {
     this.pc.oniceconnectionstatechange = () => {
       const state = this.pc?.iceConnectionState;
       this._fire('ice-state', state);
-      if (state === 'connected' || state === 'completed') {
-        this._startLatencyMonitor();
-      }
+      if (state === 'connected' || state === 'completed') this._startLatencyMonitor();
     };
 
     if (isOfferer) {
-      // Viewer Side: Add transceiver to request video
-      this.pc.addTransceiver('video', { direction: 'recvonly' });
+      // Create DataChannel first
       this.dataChannel = this.pc.createDataChannel('phantom-control', { ordered: false, maxRetransmits: 0 });
       this._setupDataChannel(this.dataChannel);
     } else {
-      // Host Side: Wait for DataChannel
       this.pc.ondatachannel = (e) => {
         this.dataChannel = e.channel;
         this._setupDataChannel(this.dataChannel);
@@ -69,21 +61,16 @@ class RTCEngine {
     }
   }
 
-  async setEncryptionKey(sessionToken) {
-    if (!sessionToken) return;
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(sessionToken);
-    const hash = await crypto.subtle.digest('SHA-256', keyData);
-    this._encryptionKey = await crypto.subtle.importKey('raw', hash, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+  async setEncryptionKey(token) {
+    // Disabled for stability troubleshooting
+    this._encryptionKey = null; 
   }
 
   _setupDataChannel(ch) {
     ch.onopen = () => this._fire('datachannel-open');
-    ch.onmessage = async (e) => {
+    ch.onmessage = (e) => {
       try {
-        let rawData = e.data;
-        if (this._encryptionKey && rawData instanceof ArrayBuffer) rawData = await this._decrypt(rawData);
-        const data = JSON.parse(typeof rawData === 'string' ? rawData : new TextDecoder().decode(rawData));
+        const data = JSON.parse(e.data);
         if (data.type === 'pong') {
           const sent = this._latencyPings.get(data.id);
           if (sent) { this._fire('latency', Date.now() - sent); this._latencyPings.delete(data.id); }
@@ -95,27 +82,10 @@ class RTCEngine {
     };
   }
 
-  async _encrypt(text) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encoded = new TextEncoder().encode(text);
-    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, this._encryptionKey, encoded);
-    const combined = new Uint8Array(iv.length + ciphertext.byteLength);
-    combined.set(iv);
-    combined.set(new Uint8Array(ciphertext), iv.length);
-    return combined.buffer;
-  }
-
-  async _decrypt(buffer) {
-    const iv = new Uint8Array(buffer, 0, 12);
-    const ciphertext = new Uint8Array(buffer, 12);
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, this._encryptionKey, ciphertext);
-    return new TextDecoder().decode(decrypted);
-  }
-
   async startScreenShare() {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: 'always', frameRate: { ideal: 30, max: 60 } },
+        video: { frameRate: { ideal: 20, max: 30 } },
         audio: false
       });
       return this._handleNewStream(stream);
@@ -126,38 +96,13 @@ class RTCEngine {
 
   async _handleNewStream(stream) {
     this.localStream = stream;
-    const track = stream.getVideoTracks()[0];
-    if (this.pc) {
-      const sender = this.pc.getSenders().find(s => s.track?.kind === 'video');
-      if (sender) await sender.replaceTrack(track);
-      else this.pc.addTrack(track, stream);
-    }
+    stream.getTracks().forEach(track => this.pc.addTrack(track, stream));
     return stream;
   }
 
-  // --- Optimized SDP Mangling (Safe) ---
-  _optimizeSDP(sdp) {
-    let lines = sdp.split('\r\n');
-    // Prefer VP8 by moving it to the front of the m=video line
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith('m=video')) {
-        const parts = lines[i].split(' ');
-        const vp8Payload = lines.find(l => l.startsWith('a=rtpmap:') && l.includes('VP8/90000'))?.match(/a=rtpmap:(\d+)/)?.[1];
-        if (vp8Payload) {
-          const payloads = parts.slice(3);
-          const filtered = payloads.filter(p => p !== vp8Payload);
-          lines[i] = [...parts.slice(0, 3), vp8Payload, ...filtered].join(' ');
-        }
-        break;
-      }
-    }
-    // Add bitrate control
-    return lines.join('\r\n') + '\r\nb=AS:4000\r\n';
-  }
-
   async createOffer() {
+    // No SDP mangling for maximum stability
     const offer = await this.pc.createOffer({ offerToReceiveVideo: true });
-    offer.sdp = this._optimizeSDP(offer.sdp);
     await this.pc.setLocalDescription(offer);
     return offer;
   }
@@ -165,7 +110,6 @@ class RTCEngine {
   async createAnswer(offer) {
     await this.pc.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await this.pc.createAnswer();
-    answer.sdp = this._optimizeSDP(answer.sdp);
     await this.pc.setLocalDescription(answer);
     return answer;
   }
@@ -182,8 +126,7 @@ class RTCEngine {
 
   async sendControl(data) {
     if (this.dataChannel?.readyState === 'open') {
-      const json = JSON.stringify(data);
-      this.dataChannel.send(this._encryptionKey ? await this._encrypt(json) : json);
+      this.dataChannel.send(JSON.stringify(data));
     }
   }
 
@@ -207,16 +150,15 @@ class RTCEngine {
 
   _createTestStream() {
     const canvas = document.createElement('canvas');
-    canvas.width = 1280; canvas.height = 720;
+    canvas.width = 640; canvas.height = 480;
     const ctx = canvas.getContext('2d');
     setInterval(() => {
-      ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, 1280, 720);
-      ctx.fillStyle = '#38bdf8'; ctx.font = '40px Inter';
-      ctx.fillText('PHANTOM DESK - ACTIVE SCREEN SHARE', 350, 360);
-      ctx.strokeStyle = '#38bdf8'; ctx.strokeRect(50, 50, 1180, 620);
-      ctx.beginPath(); ctx.arc(100 + (Date.now() % 1000) / 1, 100, 10, 0, Math.PI * 2); ctx.fill();
-    }, 100);
-    return canvas.captureStream(30);
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, 640, 480);
+      ctx.fillStyle = '#ef4444'; ctx.font = '20px Arial';
+      ctx.fillText('STABILITY FALLBACK MODE', 180, 240);
+      ctx.strokeStyle = '#fff'; ctx.strokeRect(10, 10, 620, 460);
+    }, 200);
+    return canvas.captureStream(15);
   }
 
   close() {

@@ -157,7 +157,10 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       const offer = await rtc.createOffer();
       signaling.sendOffer(data.hostSocketId, offer);
       ui.addHistory(data.hostDeviceId);
-    } catch (e) { log('خطأ في تهيئة الاتصال', 'error'); }
+    } catch (e) { 
+      log('خطأ في تهيئة الاتصال: ' + e.message, 'error');
+      console.error('[RTC INIT ERROR]', e);
+    }
   });
 
   signaling.on('offer', async (data) => {
