@@ -212,12 +212,10 @@ class RTCEngine {
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
           
-          // DYNAMIC BITRATE: Start at 2Mbps for better stability
-          params.encodings[0].maxBitrate = 2000000; 
+          params.encodings[0].maxBitrate = 4000000; // Start at 4Mbps for High Quality
           params.encodings[0].networkPriority = 'high';
           params.encodings[0].priority = 'high';
           
-          // Use H.264 if possible
           sender.setParameters(params).catch(() => {});
         }
       }, 500);
@@ -316,8 +314,28 @@ class RTCEngine {
           latency, 
           iceState: this.pc.iceConnectionState 
         });
+
+        // ADAPTIVE BITRATE: If latency > 150ms, throttle bitrate to prevent congestion
+        if (this.role === 'host' && latency > 150) {
+          this._adjustBitrate(1500000); // 1.5 Mbps
+        } else if (this.role === 'host' && latency < 60) {
+          this._adjustBitrate(4000000); // 4 Mbps
+        }
+
       } catch (err) {}
     }, 1000);
+  }
+
+  async _adjustBitrate(bps) {
+    const sender = this.pc?.getSenders().find(s => s.track?.kind === 'video');
+    if (!sender) return;
+    try {
+      const params = sender.getParameters();
+      if (params.encodings[0].maxBitrate === bps) return;
+      params.encodings[0].maxBitrate = bps;
+      await sender.setParameters(params);
+      this._fire('log-debug', `[RTC] Adaptive Bitrate: ${Math.round(bps/1000)} Kbps`);
+    } catch (e) {}
   }
 
   _createTestStream() {

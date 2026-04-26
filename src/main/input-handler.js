@@ -140,8 +140,13 @@ function getMetrics() {
 function sendInputs(inputs) {
   if (!SendInput || !inputs || inputs.length === 0) return;
   try {
-    // Koffi can handle JS arrays of objects for struct pointers,
-    // but we ensure it knows the size of the struct (40 bytes on x64).
+    // Debug: Log key events
+    inputs.forEach(inp => {
+      if (inp.type === INPUT_KEYBOARD) {
+        console.log(`[INPUT] Key: VK=0x${inp.u.ki.wVk.toString(16)}, Scan=0x${inp.u.ki.wScan.toString(16)}, Flags=0x${inp.u.ki.dwFlags.toString(16)}`);
+      }
+    });
+    
     SendInput(inputs.length, inputs, 40);
   } catch (e) {
     console.error('[INPUT ERROR] SendInput failed:', e.message);
@@ -238,17 +243,12 @@ function handleInput(data) {
       const vk = VK_MAP[data.code] || (data.key && data.key.length === 1 ? data.key.toUpperCase().charCodeAt(0) : null);
       if (vk) {
         let flags = EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0;
-        // Use MapVirtualKey to get scancode for better compatibility
+        // Strategy: Use wVk for better compatibility, but include scancode for games/special apps
         const scan = MapVirtualKey ? MapVirtualKey(vk, 0) : 0;
-        if (scan) {
-          flags |= KEYEVENTF_SCANCODE;
-          sendInputs([{
-            type: INPUT_KEYBOARD,
-            u: { ki: { wVk: 0, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
-          }]);
-          return;
-        }
-        sendInputs([createKeyInput(vk, flags)]);
+        sendInputs([{
+          type: INPUT_KEYBOARD,
+          u: { ki: { wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
+        }]);
       }
       break;
     }
@@ -258,15 +258,10 @@ function handleInput(data) {
       if (vk) {
         let flags = KEYEVENTF_KEYUP | (EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0);
         const scan = MapVirtualKey ? MapVirtualKey(vk, 0) : 0;
-        if (scan) {
-          flags |= KEYEVENTF_SCANCODE;
-          sendInputs([{
-            type: INPUT_KEYBOARD,
-            u: { ki: { wVk: 0, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
-          }]);
-          return;
-        }
-        sendInputs([createKeyInput(vk, flags)]);
+        sendInputs([{
+          type: INPUT_KEYBOARD,
+          u: { ki: { wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
+        }]);
       }
       break;
     }

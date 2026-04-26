@@ -71,10 +71,10 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         s.rtc.close();
         state.sessions.delete(socketId);
         
-        // Hide Session Pulse if no sessions left
+        // Hide Session Pulse 
         if (state.sessions.size === 0) {
           document.body.classList.remove('has-active-session', 'pip-mode');
-          const pulseNav = $('nav-session-pulse');
+          const pulseNav = $('nav-session');
           if (pulseNav) pulseNav.style.display = 'none';
         }
 
@@ -243,7 +243,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   // ── 3. RTC Handlers ──
   function setupRTCHandlers(rtc, socketId, deviceId) {
     // Show Session Pulse Nav
-    const pulseNav = $('nav-session-pulse');
+    const pulseNav = $('nav-session');
     if (pulseNav) pulseNav.style.display = 'flex';
 
     rtc.on('stream', (stream) => {
@@ -257,10 +257,15 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       
       if (video.srcObject !== stream) {
         video.srcObject = stream;
-        video.play().catch(() => {
+        video.play().then(() => {
+          $('video-overlay').style.display = 'none';
+        }).catch(() => {
           $('video-overlay').style.display = 'flex';
         });
       }
+      
+      // HUD & Stealth Toolbar Activation
+      setupStealthToolbar(video);
     });
 
     rtc.on('control-data', async (data) => {
@@ -335,7 +340,12 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
     rtc.on('stats-update', (stats) => {
       if (state.activeSessionId === socketId) {
-        ui.updateHUD(Math.round(stats.latency || 0), Math.round(stats.fps || 0));
+        // Update HUD
+        const latEl = $('hud-latency');
+        const fpsEl = $('hud-fps');
+        if (latEl) latEl.innerText = `${stats.latency} ms`;
+        if (fpsEl) fpsEl.innerText = `${stats.fps} FPS`;
+
         ui.updateDiagStats({
           iceState: stats.iceState || 'Connected',
           latency: Math.round(stats.latency || 0),
@@ -803,6 +813,35 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       container.appendChild(item);
     });
   }
+
+  function setupStealthToolbar(video) {
+    const toolbar = $('session-toolbar');
+    if (!toolbar) return;
+
+    let hideTimeout;
+    const show = () => {
+      toolbar.style.opacity = '1';
+      toolbar.style.transform = 'translateX(-50%) translateY(0)';
+      clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        toolbar.style.opacity = '0';
+        toolbar.style.transform = 'translateX(-50%) translateY(50px)';
+      }, 3000);
+    };
+
+    video.addEventListener('mousemove', (e) => {
+      const rect = video.getBoundingClientRect();
+      const distFromBottom = rect.bottom - e.clientY;
+      if (distFromBottom < 100) show();
+    });
+
+    toolbar.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+    toolbar.addEventListener('mouseleave', show);
+    
+    // Initial show
+    show();
+  }
+
   renderHistory();
 
   // Global Utils

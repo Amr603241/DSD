@@ -75,7 +75,7 @@ class UIManager {
   }
 
   switchView(name) {
-    const isSessionActive = !!document.getElementById('nav-session-pulse')?.style.display === 'flex' || document.body.classList.contains('has-active-session');
+    const isSessionActive = (document.getElementById('nav-session')?.style.display === 'flex') || document.body.classList.contains('has-active-session');
     
     Object.keys(this.views).forEach(k => {
       const v = this.views[k];
