@@ -131,26 +131,39 @@ class RTCEngine {
       
       this._fire('log-debug', `[RTC] Final Selection: ${screen.name} (${screen.id})`);
 
-      this.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: screen.id
+      try {
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: screen.id
+            }
+          },
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: screen.id,
+              maxWidth: 1920,
+              maxHeight: 1080,
+              maxFrameRate: 60
+            }
           }
-        },
-        video: {
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: screen.id,
-            minWidth: 1280,
-            maxWidth: 1920,
-            minHeight: 720,
-            maxHeight: 1080,
-            minFrameRate: 30,
-            maxFrameRate: 60
+        });
+      } catch (audioErr) {
+        this._fire('log-debug', `[RTC] Audio capture failed, falling back to video-only: ${audioErr.message}`);
+        this.localStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: screen.id,
+              maxWidth: 1920,
+              maxHeight: 1080,
+              maxFrameRate: 60
+            }
           }
-        }
-      });
+        });
+      }
 
       const track = this.localStream.getVideoTracks()[0];
       if (track) {
@@ -163,7 +176,7 @@ class RTCEngine {
         track.onended = () => this._fire('log-debug', '[RTC] Screen track ended unexpectedly');
       }
 
-      return this._handleNewStream(stream);
+      return this._handleNewStream(this.localStream);
     } catch (e) {
       this._fire('log-debug', `[RTC] Capture Error: ${e.message}`);
       return this._handleNewStream(this._createTestStream());
