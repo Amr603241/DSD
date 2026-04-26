@@ -203,9 +203,22 @@ ipcMain.handle('is-maximized', () => mainWindow?.isMaximized() || false);
 app.whenReady().then(() => {
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
     desktopCapturer.getSources({ types: ['screen', 'window'] }).then(sources => {
-      const screen = sources.find(s => s.id.startsWith('screen:') || s.name.toLowerCase().includes('entire') || s.name.toLowerCase().includes('screen 1') || s.name.includes('شاشة 1')) || sources[0];
-      callback(screen ? { video: screen } : {});
-    }).catch(() => callback({}));
+      // Prioritize primary screen, then any screen, then any source
+      const screenSource = sources.find(s => s.id.startsWith('screen:1') || s.id.startsWith('screen:0')) || 
+                           sources.find(s => s.id.startsWith('screen:')) || 
+                           sources[0];
+      
+      if (screenSource) {
+        writeToLog(`[MEDIA] Auto-selecting source: ${screenSource.name} (${screenSource.id})`);
+        callback({ video: screenSource });
+      } else {
+        writeToLog(`[MEDIA] No screen sources found!`);
+        callback({});
+      }
+    }).catch(e => {
+      writeToLog(`[MEDIA] Error getting sources: ${e.message}`);
+      callback({});
+    });
   });
   createWindow();
 });
