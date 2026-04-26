@@ -262,19 +262,24 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     rtc.on('control-data', async (data) => {
       if (!state.isHost) return;
 
-      // Permission Check
-      const canMouse = $('perm-mouse')?.checked !== false;
-      const canKeys = $('perm-keyboard')?.checked !== false;
-      const canClip = $('perm-clipboard')?.checked !== false;
+      // Permission Check (Default to true if UI not found)
+      const canMouse = !($('perm-mouse')) || $('perm-mouse').checked;
+      const canKeys = !($('perm-keyboard')) || $('perm-keyboard').checked;
+      const canClip = !($('perm-clipboard')) || $('perm-clipboard').checked;
 
       if (data.type === 'refresh-stream') {
         log('تلقيت طلباً لتحديث البث...', 'info');
         await rtc.startScreenShare();
-      } else if (data.type === 'mouse' && canMouse) {
-        window.phantom.simulateInput(data);
-      } else if (data.type === 'key' && canKeys) {
-        window.phantom.simulateInput(data);
-      } else if (data.type === 'clipboard-sync' && canClip) {
+      } 
+      // Handle all mouse event types
+      else if (data.type.startsWith('mouse') || data.type === 'dblclick' || data.type === 'wheel') {
+        if (canMouse) window.phantom.simulateInput(data);
+      } 
+      // Handle all keyboard event types
+      else if (data.type.startsWith('key')) {
+        if (canKeys) window.phantom.simulateInput(data);
+      } 
+      else if (data.type === 'clipboard-sync' && canClip) {
         window.phantom.writeClipboard(data.text);
       } else if (data.type === 'chat-message') {
         appendChatMessage('received', data.text);
