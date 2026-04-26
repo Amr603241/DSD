@@ -67,13 +67,20 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       const s = state.sessions.get(socketId);
       if (!s) return;
       state.activeSessionId = socketId;
-      if (s.stream) {
-        const video = $('remote-video');
-        if (video) {
-          video.srcObject = s.stream;
-          video.play().catch(() => {});
-        }
+      
+      const video = $('remote-video');
+      if (video && s.stream) {
+        log(`إعادة ربط دفق الجلسة: ${s.deviceId}...`);
+        if (video.srcObject !== s.stream) video.srcObject = s.stream;
+        
+        video.play().then(() => {
+          $('video-overlay').style.display = 'none';
+        }).catch(() => {
+          log('بانتظار تفاعل المستخدم لبدء الفيديو', 'warning');
+          $('video-overlay').style.display = 'flex';
+        });
       }
+      
       this.renderTabs();
       ui.switchView('session');
     },
@@ -296,6 +303,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
     rtc.on('datachannel-open', () => log('قناة البيانات مفتوحة - التحكم نشط', 'success'));
     rtc.on('ice-candidate', (c) => signaling.sendIceCandidate(socketId, c));
+    rtc.on('re-offer', (offer) => signaling.sendOffer(socketId, offer));
   }
 
   // ── 4. UI Events ──
@@ -409,6 +417,13 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   $('nav-logs')?.addEventListener('click', () => ui.switchView('logs'));
   $('nav-settings')?.addEventListener('click', () => ui.switchView('settings'));
   $('nav-diag')?.addEventListener('click', () => ui.switchView('diag'));
+  
+  // Radical Persistence: Ensure session nav re-attaches video
+  $('nav-session')?.addEventListener('click', () => {
+    if (state.activeSessionId) {
+      sessionManager.switch(state.activeSessionId);
+    }
+  });
 
   // Local Screen Capture Test
   $('btn-test-capture')?.addEventListener('click', async () => {

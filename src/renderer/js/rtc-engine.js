@@ -15,8 +15,7 @@ class RTCEngine {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
         {
           urls: [
             'turn:openrelay.metered.ca:80',
@@ -26,17 +25,33 @@ class RTCEngine {
           ],
           username: 'openrelayproject',
           credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:relay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
         }
       ],
       iceCandidatePoolSize: 10,
       bundlePolicy: 'max-bundle',
-      rtcpMuxPolicy: 'require'
+      rtcpMuxPolicy: 'require',
+      iceTransportPolicy: 'all' // Can be changed to 'relay' for debugging
     };
   }
 
-  async init(isOfferer, mode) {
+  async init(isOfferer, role = 'viewer') {
+    this.role = role;
     if (this.pc) this.close();
     this.pc = new RTCPeerConnection(this.config);
+    this._fire('log-debug', `[RTC] Initialized as ${role}`);
+
+    // ICE Watchdog: Trigger restart if connection hangs
+    this._iceWatchdog = setTimeout(() => {
+      if (this.pc && (this.pc.iceConnectionState === 'new' || this.pc.iceConnectionState === 'checking')) {
+        this._fire('log-debug', '[RTC] Connection hanging... Triggering ICE Restart.');
+        this.restartIce().catch(() => {});
+      }
+    }, 12000);
 
     this.pc.onicecandidate = (e) => {
       if (e.candidate) this._fire('ice-candidate', e.candidate);
@@ -165,6 +180,18 @@ class RTCEngine {
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
     return answer;
+  }
+
+  async restartIce() {
+    if (!this.pc) return;
+    try {
+      this._fire('log-debug', '[RTC] Restarting ICE Negotiation...');
+      const offer = await this.pc.createOffer({ iceRestart: true });
+      await this.pc.setLocalDescription(offer);
+      this._fire('re-offer', offer);
+    } catch (e) {
+      this._fire('log-debug', `[RTC] ICE Restart Failed: ${e.message}`);
+    }
   }
 
   async handleAnswer(answer) {
