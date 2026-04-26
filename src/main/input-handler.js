@@ -1,14 +1,14 @@
 /**
- * PhantomDesk — Native Input Handler v1.0
- * ────────────────────────────────────────
- * Uses koffi FFI to call Windows SendInput API
- * for precise mouse and keyboard simulation.
+ * PhantomDesk — Native Input Handler v2.0 (Turbo Edition)
+ * ──────────────────────────────────────────────────────
+ * Uses koffi FFI to call Windows SendInput API.
+ * SendInput is faster and more precise than legacy mouse_event.
  */
 
 let user32 = null;
-let SendInput, SetCursorPos, GetSystemMetrics;
+let SendInput, GetSystemMetrics;
 
-// ── Structures for SendInput ──
+// ── Constants & Structs ──
 const INPUT_MOUSE    = 0;
 const INPUT_KEYBOARD = 1;
 
@@ -21,25 +21,49 @@ const MOUSEEVENTF_MIDDLEDOWN = 0x0020;
 const MOUSEEVENTF_MIDDLEUP   = 0x0040;
 const MOUSEEVENTF_WHEEL      = 0x0800;
 const MOUSEEVENTF_ABSOLUTE   = 0x8000;
+const MOUSEEVENTF_VIRTUALDESK = 0x4000;
 
 const KEYEVENTF_KEYUP        = 0x0002;
 const KEYEVENTF_EXTENDEDKEY  = 0x0001;
 
-// ── Load user32.dll ──
+// ── koffi Structures ──
+let MOUSEINPUT, KEYBDINPUT, INPUT;
+
 try {
   const koffi = require('koffi');
   user32 = koffi.load('user32.dll');
 
-  SetCursorPos    = user32.func('int __stdcall SetCursorPos(int, int)');
   GetSystemMetrics = user32.func('int __stdcall GetSystemMetrics(int)');
+  
+  // SendInput definition
+  // UINT SendInput(UINT nInputs, LPINPUT pInputs, int cbSize);
+  
+  MOUSEINPUT = koffi.struct('MOUSEINPUT', {
+    dx: 'long',
+    dy: 'long',
+    mouseData: 'uint32',
+    dwFlags: 'uint32',
+    time: 'uint32',
+    dwExtraInfo: 'uintptr_t'
+  });
 
-  // Legacy API functions (reliable fallback)
-  const mouse_event_fn = user32.func('void __stdcall mouse_event(unsigned int, unsigned int, unsigned int, unsigned int, uintptr_t)');
-  const keybd_event_fn = user32.func('void __stdcall keybd_event(unsigned char, unsigned char, unsigned int, uintptr_t)');
+  KEYBDINPUT = koffi.struct('KEYBDINPUT', {
+    wVk: 'uint16',
+    wScan: 'uint16',
+    dwFlags: 'uint32',
+    time: 'uint32',
+    dwExtraInfo: 'uintptr_t'
+  });
 
-  // Store for use in handler
-  user32._mouse_event = mouse_event_fn;
-  user32._keybd_event = keybd_event_fn;
+  INPUT = koffi.struct('INPUT', {
+    type: 'uint32',
+    u: koffi.union({
+      mi: MOUSEINPUT,
+      ki: KEYBDINPUT
+    })
+  });
+
+  SendInput = user32.func('uint32 __stdcall SendInput(uint32, INPUT *, int)');
 
   // DPI Awareness
   try {
@@ -47,12 +71,12 @@ try {
     SetProcessDPIAware();
   } catch {}
 
-  console.log('[✓] Native input: user32.dll loaded with DPI awareness');
+  console.log('[✓] Native input v2: SendInput API initialized');
 } catch (e) {
-  console.error('[✗] koffi/user32 load failed:', e.message);
+  console.error('[✗] koffi/SendInput load failed:', e.message);
 }
 
-// ── VK Code Map ──
+// ── VK Code Map (Static) ──
 const VK_MAP = {
   'Backspace': 0x08, 'Tab': 0x09, 'Enter': 0x0D,
   'ShiftLeft': 0x10, 'ShiftRight': 0x10,
@@ -100,7 +124,7 @@ const EXTENDED_KEYS = new Set([
 let metricsCache = { w: 0, h: 0, ts: 0 };
 function getMetrics() {
   const now = Date.now();
-  if (now - metricsCache.ts > 3000) {
+  if (now - metricsCache.ts > 5000) {
     metricsCache.w = GetSystemMetrics(0);
     metricsCache.h = GetSystemMetrics(1);
     metricsCache.ts = now;
@@ -108,10 +132,40 @@ function getMetrics() {
   return metricsCache;
 }
 
-function getVK(code, key) {
-  if (VK_MAP[code]) return VK_MAP[code];
-  if (key && key.length === 1) return key.toUpperCase().charCodeAt(0);
-  return null;
+function sendInputs(inputs) {
+  if (!SendInput || !inputs || inputs.length === 0) return;
+  // Size of INPUT struct is usually 40 bytes on x64
+  SendInput(inputs.length, inputs, 40);
+}
+
+function createMouseInput(dx, dy, flags, data = 0) {
+  return {
+    type: INPUT_MOUSE,
+    u: {
+      mi: {
+        dx: dx, dy: dy,
+        mouseData: data,
+        dwFlags: flags,
+        time: 0,
+        dwExtraInfo: 0
+      }
+    }
+  };
+}
+
+function createKeyInput(vk, flags) {
+  return {
+    type: INPUT_KEYBOARD,
+    u: {
+      ki: {
+        wVk: vk,
+        wScan: 0,
+        dwFlags: flags,
+        time: 0,
+        dwExtraInfo: 0
+      }
+    }
+  };
 }
 
 // ── Main Input Handler ──
@@ -122,67 +176,68 @@ function handleInput(data) {
   const y = Number.isFinite(data.y) ? Math.round(data.y) : null;
   const m = getMetrics();
 
+  const toAbsX = (vx) => Math.floor((vx * 65535) / (m.w - 1 || 1));
+  const toAbsY = (vy) => Math.floor((vy * 65535) / (m.h - 1 || 1));
+
   switch (data.type) {
     case 'mousemove': {
       if (x === null || y === null) return;
-      const ax = Math.floor((x * 65535) / (m.w - 1 || 1));
-      const ay = Math.floor((y * 65535) / (m.h - 1 || 1));
-      user32._mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, ax, ay, 0, 0);
+      sendInputs([createMouseInput(toAbsX(x), toAbsY(y), MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK)]);
       break;
     }
 
     case 'mousedown': {
+      const inputs = [];
       if (x !== null && y !== null) {
-        const ax = Math.floor((x * 65535) / (m.w || 1));
-        const ay = Math.floor((y * 65535) / (m.h || 1));
-        user32._mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, ax, ay, 0, 0);
+        inputs.push(createMouseInput(toAbsX(x), toAbsY(y), MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK));
       }
       const downFlag = data.button === 2 ? MOUSEEVENTF_RIGHTDOWN :
                         data.button === 1 ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_LEFTDOWN;
-      user32._mouse_event(downFlag, 0, 0, 0, 0);
+      inputs.push(createMouseInput(0, 0, downFlag));
+      sendInputs(inputs);
       break;
     }
 
     case 'mouseup': {
       const upFlag = data.button === 2 ? MOUSEEVENTF_RIGHTUP :
                      data.button === 1 ? MOUSEEVENTF_MIDDLEUP : MOUSEEVENTF_LEFTUP;
-      user32._mouse_event(upFlag, 0, 0, 0, 0);
+      sendInputs([createMouseInput(0, 0, upFlag)]);
       break;
     }
 
     case 'dblclick': {
+      const inputs = [];
       if (x !== null && y !== null) {
-        const ax = Math.floor((x * 65535) / (m.w || 1));
-        const ay = Math.floor((y * 65535) / (m.h || 1));
-        user32._mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, ax, ay, 0, 0);
+        inputs.push(createMouseInput(toAbsX(x), toAbsY(y), MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK));
       }
-      user32._mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-      user32._mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-      user32._mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-      user32._mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+      inputs.push(createMouseInput(0, 0, MOUSEEVENTF_LEFTDOWN));
+      inputs.push(createMouseInput(0, 0, MOUSEEVENTF_LEFTUP));
+      inputs.push(createMouseInput(0, 0, MOUSEEVENTF_LEFTDOWN));
+      inputs.push(createMouseInput(0, 0, MOUSEEVENTF_LEFTUP));
+      sendInputs(inputs);
       break;
     }
 
     case 'wheel': {
       const delta = data.deltaY > 0 ? -120 : 120;
-      user32._mouse_event(MOUSEEVENTF_WHEEL, 0, 0, delta, 0);
+      sendInputs([createMouseInput(0, 0, MOUSEEVENTF_WHEEL, delta)]);
       break;
     }
 
     case 'keydown': {
-      const vk = getVK(data.code, data.key);
+      const vk = VK_MAP[data.code] || (data.key && data.key.length === 1 ? data.key.toUpperCase().charCodeAt(0) : null);
       if (vk) {
         const flags = EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0;
-        user32._keybd_event(vk, 0, flags, 0);
+        sendInputs([createKeyInput(vk, flags)]);
       }
       break;
     }
 
     case 'keyup': {
-      const vk = getVK(data.code, data.key);
+      const vk = VK_MAP[data.code] || (data.key && data.key.length === 1 ? data.key.toUpperCase().charCodeAt(0) : null);
       if (vk) {
         const flags = KEYEVENTF_KEYUP | (EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0);
-        user32._keybd_event(vk, 0, flags, 0);
+        sendInputs([createKeyInput(vk, flags)]);
       }
       break;
     }

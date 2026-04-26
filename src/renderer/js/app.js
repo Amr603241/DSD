@@ -264,21 +264,20 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       // If we are viewer, handle ghost cursor and system info from host
       if (!state.isHost) {
         if (data.type === 'ghost-cursor') {
-          const ghost = $('ghost-cursor');
-          const video = $('remote-video');
-          if (ghost && video) {
-            const rect = video.getBoundingClientRect();
-            const gx = (data.x / 1920) * rect.width;
-            const gy = (data.y / 1080) * rect.height;
-            ghost.style.left = `${gx}px`;
-            ghost.style.top = `${gy}px`;
-            ghost.style.display = 'block';
-          }
+          // Ghost cursor removed to eliminate "double cursor" feeling
+          return;
         } else if (data.type === 'system-info') {
           ui.updateSystemDetailedStats(data);
           if ($('remote-cpu')) $('remote-cpu').innerText = `CPU: ${Math.round(data.cpuLoad || 0)}%`;
           if ($('remote-ram')) $('remote-ram').innerText = `RAM: ${Math.round(data.ramUsage || 0)}%`;
           if (data.tasks) renderTasksList(data.tasks);
+        }
+        else if (data.type === 'privacy-mode') {
+          window.phantom.togglePrivacyMode(data.enabled);
+        }
+        else if (data.type === 'lock-input') {
+          state.remoteInputLocked = data.enabled;
+          ui.showToast(data.enabled ? 'تم قفل إدخال المضيف' : 'تم تفعيل إدخال المضيف', 'info');
         }
         return;
       }
@@ -287,6 +286,9 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       const canMouse = !($('perm-mouse')) || $('perm-mouse').checked;
       const canKeys = !($('perm-keyboard')) || $('perm-keyboard').checked;
       const canClip = !($('perm-clipboard')) || $('perm-clipboard').checked;
+      
+      // Input Lock Check
+      if (state.remoteInputLocked) return;
 
       if (data.type === 'refresh-stream') {
         log('تلقيت طلباً لتحديث البث...', 'info');
@@ -347,6 +349,20 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     } else {
       ui.showToast('لا توجد شاشات إضافية', 'info');
     }
+  });
+
+  $('stool-privacy')?.addEventListener('click', () => {
+    state.privacyActive = !state.privacyActive;
+    rtc.sendControl({ type: 'privacy-mode', enabled: state.privacyActive });
+    $('stool-privacy').classList.toggle('active', state.privacyActive);
+    ui.showToast(state.privacyActive ? 'تم تفعيل وضع الخصوصية' : 'تم إيقاف وضع الخصوصية', 'info');
+  });
+
+  $('stool-lock')?.addEventListener('click', () => {
+    state.inputLocked = !state.inputLocked;
+    rtc.sendControl({ type: 'lock-input', enabled: state.inputLocked });
+    $('stool-lock').classList.toggle('active', state.inputLocked);
+    ui.showToast(state.inputLocked ? 'تم قفل التحكم لدى البعيد' : 'تم إطلاق التحكم لدى البعيد', 'info');
   });
 
   $('stool-turbo')?.addEventListener('click', () => {

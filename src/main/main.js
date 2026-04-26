@@ -243,6 +243,39 @@ ipcMain.on('window-maximize', () => { if (mainWindow) mainWindow.isMaximized() ?
 ipcMain.on('window-close', () => mainWindow?.close());
 ipcMain.handle('is-maximized', () => mainWindow?.isMaximized() || false);
 
+// ── Privacy Mode (Blackout) ──
+let privacyWindows = [];
+ipcMain.handle('toggle-privacy-mode', (event, enabled) => {
+  if (enabled) {
+    if (privacyWindows.length > 0) return true;
+    const displays = screen.getAllDisplays();
+    displays.forEach(display => {
+      let win = new BrowserWindow({
+        x: display.bounds.x,
+        y: display.bounds.y,
+        width: display.bounds.width,
+        height: display.bounds.height,
+        frame: false,
+        alwaysOnTop: true,
+        transparent: false,
+        backgroundColor: '#000000',
+        fullscreen: true,
+        skipTaskbar: true,
+        enableLargerThanScreen: true,
+        webPreferences: { nodeIntegration: false }
+      });
+      win.setIgnoreMouseEvents(false); // Blocks input on host
+      win.loadURL('data:text/html,<body style="background:black;color:#333;display:flex;align-items:center;justify-content:center;font-family:sans-serif;overflow:hidden;"><div style="text-align:center;"><h1>Privacy Mode Active</h1><p>Remote session in progress...</p></div></body>');
+      privacyWindows.push(win);
+    });
+    return true;
+  } else {
+    privacyWindows.forEach(win => { if (!win.isDestroyed()) win.close(); });
+    privacyWindows = [];
+    return false;
+  }
+});
+
 // ── App Lifecycle ──
 app.whenReady().then(() => {
   createWindow();

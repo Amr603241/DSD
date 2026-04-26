@@ -34,7 +34,8 @@ class RTCEngine {
       ],
       rtcpMuxPolicy: 'require',
       iceTransportPolicy: 'all',
-      iceCandidatePoolSize: 10
+      iceCandidatePoolSize: 2, // Reduced to speed up initial gathering
+      sdpSemantics: 'unified-plan'
     };
   }
 
@@ -247,6 +248,7 @@ class RTCEngine {
       : this.dataChannel;
 
     if (channel && channel.readyState === 'open') {
+      // Use low-level binary transfer if possible, or just optimized JSON
       channel.send(JSON.stringify(data));
     }
   }
