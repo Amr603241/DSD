@@ -221,6 +221,7 @@ body {
   letter-spacing: 5px;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .id-loading { color:var(--text-dim); font-size:14px; }
