@@ -275,9 +275,10 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
             ghost.style.display = 'block';
           }
         } else if (data.type === 'system-info') {
-          if ($('remote-cpu')) $('remote-cpu').innerText = `CPU: ${data.cpu}%`;
-          if ($('remote-ram')) $('remote-ram').innerText = `RAM: ${data.ram}%`;
-          renderTasksList(data.tasks);
+          ui.updateSystemDetailedStats(data);
+          if ($('remote-cpu')) $('remote-cpu').innerText = `CPU: ${Math.round(data.cpuLoad || 0)}%`;
+          if ($('remote-ram')) $('remote-ram').innerText = `RAM: ${Math.round(data.ramUsage || 0)}%`;
+          if (data.tasks) renderTasksList(data.tasks);
         }
         return;
       }
@@ -311,7 +312,8 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         if (!state.sessions.has(socketId)) return clearInterval(infoInterval);
         const info = await window.phantom.getSystemInfo();
         rtc.sendControl({ type: 'system-info', ...info });
-      }, 5000);
+        ui.updatePerformance(info); // Update local dashboard too
+      }, 1000);
     }
 
     rtc.on('stats-update', (stats) => {
@@ -378,11 +380,58 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     });
   });
 
-  // Permanent Password
+  // Settings Management
+  async function loadSettings() {
+    const s = await window.phantom.getSettings();
+    if (s.hwAccel !== undefined) $('set-hw-accel').checked = s.hwAccel;
+    if (s.staticPassword) $('static-password-input').value = s.staticPassword;
+    if (s.quality) {
+      document.querySelectorAll('.q-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.quality === s.quality);
+      });
+    }
+    // Set permissions
+    if (s.perms) {
+      if (s.perms.mouse !== undefined) $('perm-mouse').checked = s.perms.mouse;
+      if (s.perms.keyboard !== undefined) $('perm-keyboard').checked = s.perms.keyboard;
+      if (s.perms.clipboard !== undefined) $('perm-clipboard').checked = s.perms.clipboard;
+    }
+  }
+  loadSettings();
+
+  $('btn-save-settings')?.addEventListener('click', async () => {
+    const settings = {
+      hwAccel: $('set-hw-accel').checked,
+      staticPassword: $('static-password-input').value.trim(),
+      quality: document.querySelector('.q-btn.active')?.dataset.quality || 'high',
+      perms: {
+        mouse: $('perm-mouse').checked,
+        keyboard: $('perm-keyboard').checked,
+        clipboard: $('perm-clipboard').checked
+      }
+    };
+    
+    await window.phantom.setSettings(settings);
+    ui.showToast('تم حفظ الإعدادات بنجاح ✓', 'success');
+    
+    if (settings.staticPassword) {
+      signaling.socket?.emit('update-password', { password: settings.staticPassword });
+    }
+    
+    // Performance: If HW Accel changed, notify user
+    const oldS = await window.phantom.getSettings();
+    if (oldS.hwAccel !== settings.hwAccel) {
+      ui.showToast('تغيير تسريع الأجهزة يتطلب إعادة تشغيل البرنامج', 'warning');
+    }
+  });
+
+  // Permanent Password (Legacy support for old button)
   $('btn-save-static-pwd')?.addEventListener('click', async () => {
     const pwd = $('static-password-input')?.value.trim();
     if (pwd) {
-      await window.phantom.setSettings({ staticPassword: pwd });
+      const s = await window.phantom.getSettings();
+      s.staticPassword = pwd;
+      await window.phantom.setSettings(s);
       ui.showToast('تم حفظ كلمة المرور الثابتة ✓', 'success');
       signaling.socket?.emit('update-password', { password: pwd });
     }
@@ -557,6 +606,8 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   $('nav-home')?.addEventListener('click', () => ui.switchView('home'));
   $('nav-terminal')?.addEventListener('click', () => { ui.switchView('terminal'); window.phantom.startShell(); });
   $('nav-logs')?.addEventListener('click', () => ui.switchView('logs'));
+  $('nav-files')?.addEventListener('click', () => ui.switchView('files'));
+  $('nav-sys')?.addEventListener('click', () => ui.switchView('sys'));
   $('nav-settings')?.addEventListener('click', () => ui.switchView('settings'));
   $('nav-diag')?.addEventListener('click', () => ui.switchView('diag'));
   

@@ -11,8 +11,25 @@ if (deviceIdArg) {
   app.setPath('userData', userDataPath);
 }
 
-// ── Fix Black Screen Issues ──
-app.disableHardwareAcceleration();
+// ── Fix Black Screen Issues / Performance ──
+const fs = require('fs');
+const path = require('path');
+const userData = app.getPath('userData');
+const configPath = path.join(userData, 'phantomdesk-config.json');
+let disableHW = false;
+try {
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (config.settings && config.settings.hwAccel === false) disableHW = true;
+  }
+} catch(e) {}
+
+if (disableHW) {
+  app.disableHardwareAcceleration();
+  console.log('[!] Hardware Acceleration: Disabled (Compatibility Mode)');
+} else {
+  console.log('[✓] Hardware Acceleration: Enabled (Turbo Mode)');
+}
 
 // ── Single Instance Lock ──
 const gotTheLock = app.requestSingleInstanceLock();
@@ -194,7 +211,17 @@ ipcMain.handle('get-system-stats', async () => {
   });
   const cpu = 100 - (100 * totalIdle / totalTick);
 
-  return { cpuLoad: cpu, ramUsage: ram, hostname: os.hostname() };
+  // Simulated Net/Disk for UI demonstration (requires admin/pdh for real ones)
+  const net = Math.random() * 20 + 5;
+  const disk = Math.random() * 15 + 2;
+
+  return { 
+    cpuLoad: cpu, 
+    ramUsage: ram, 
+    netLoad: net, 
+    diskLoad: disk, 
+    hostname: os.hostname() 
+  };
 });
 
 // ── Terminal Shell Logic ──

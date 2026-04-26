@@ -35,6 +35,15 @@ class UIManager {
       diagSession:  document.getElementById('diag-session'),
       diagType:     document.getElementById('diag-type'),
       diagNav:      document.getElementById('nav-diag'),
+      setHwAccel:   document.getElementById('set-hw-accel'),
+      btnSaveSet:   document.getElementById('btn-save-settings'),
+    };
+
+    this.charts = {
+      cpu: { el: document.getElementById('chart-cpu'), data: [] },
+      ram: { el: document.getElementById('chart-ram'), data: [] },
+      net: { el: document.getElementById('chart-net'), data: [] },
+      disk:{ el: document.getElementById('chart-disk'), data: [] }
     };
 
     this._pwdVisible = false;
@@ -233,6 +242,64 @@ class UIManager {
       <button class="h-reconnect" data-id="${deviceId}">اتصال</button>
     `;
     this.el.historyList.prepend(item);
+  }
+
+  updateSystemDetailedStats(stats) {
+    this.updatePerformance(stats);
+    
+    // Update charts data
+    if (stats.cpuLoad !== undefined) this._updateChart('cpu', stats.cpuLoad, '#6c5ce7');
+    if (stats.ramUsage !== undefined) this._updateChart('ram', stats.ramUsage, '#00cec9');
+    if (stats.netLoad !== undefined) this._updateChart('net', stats.netLoad, '#00e676');
+    if (stats.diskLoad !== undefined) this._updateChart('disk', stats.diskLoad, '#ffa502');
+  }
+
+  _updateChart(key, val, color) {
+    const chart = this.charts[key];
+    if (!chart || !chart.el) return;
+
+    chart.data.push(val);
+    if (chart.data.length > 50) chart.data.shift();
+
+    const canvas = chart.el;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = canvas.offsetWidth;
+    const h = canvas.height = canvas.offsetHeight;
+
+    ctx.clearRect(0, 0, w, h);
+    
+    // Draw Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for(let i=0; i<4; i++) {
+      const y = (h / 4) * i;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // Draw Line
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    
+    const step = w / 49;
+    chart.data.forEach((d, i) => {
+      const x = i * step;
+      const y = h - (d / 100) * h;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Fill Area
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.fillStyle = color.replace(')', ', 0.15)').replace('rgb', 'rgba');
+    if (!color.includes('rgba')) {
+      // Simple fallback for hex
+      ctx.fillStyle = color + '22';
+    }
+    ctx.fill();
   }
 }
 

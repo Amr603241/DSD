@@ -32,10 +32,9 @@ class RTCEngine {
           credential: 'openrelayproject'
         }
       ],
-      iceCandidatePoolSize: 10,
-      bundlePolicy: 'max-bundle',
       rtcpMuxPolicy: 'require',
-      iceTransportPolicy: 'all' // Can be changed to 'relay' for debugging
+      iceTransportPolicy: 'all',
+      iceCandidatePoolSize: 10
     };
   }
 

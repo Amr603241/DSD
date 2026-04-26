@@ -33,6 +33,12 @@
         <button class="nav-item" data-view="logs" id="nav-logs">
           <i class="fas fa-chart-line"></i><span>السجلات</span>
         </button>
+        <button class="nav-item" data-view="files" id="nav-files">
+          <i class="fas fa-file-export"></i><span>نقل الملفات</span>
+        </button>
+        <button class="nav-item" data-view="sys" id="nav-sys">
+          <i class="fas fa-chart-pie"></i><span>مراقب النظام</span>
+        </button>
         <button class="nav-item" data-view="diag" id="nav-diag">
           <i class="fas fa-microchip"></i><span>التشخيص</span>
         </button>
@@ -201,6 +207,64 @@
         </div>
       </section>
 
+      <!-- ── VIEW: FILE TRANSFER ── -->
+      <section class="view" id="view-files">
+        <div class="view-header">
+          <i class="fas fa-file-export"></i>
+          <div>
+            <h2>مركز نقل الملفات</h2>
+            <p>تبادل الملفات والمجلدات بين الجهاز المحلي والبعيد بسرعة فائقة</p>
+          </div>
+        </div>
+        <div class="files-container">
+          <div class="card file-panel">
+            <div class="card-head"><span class="card-tag">الجهاز المحلي</span></div>
+            <div class="file-list" id="local-files">
+              <div class="file-placeholder"><i class="fas fa-folder-open"></i><span>قريباً: إدارة الملفات المحلية</span></div>
+            </div>
+          </div>
+          <div class="file-actions-mid">
+            <button class="btn-icon"><i class="fas fa-chevron-left"></i></button>
+            <button class="btn-icon"><i class="fas fa-chevron-right"></i></button>
+          </div>
+          <div class="card file-panel">
+            <div class="card-head"><span class="card-tag">الجهاز البعيد</span></div>
+            <div class="file-list" id="remote-files">
+              <div class="file-placeholder"><i class="fas fa-cloud-download-alt"></i><span>بانتظار الاتصال...</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── VIEW: SYSTEM MONITOR ── -->
+      <section class="view" id="view-sys">
+        <div class="view-header">
+          <i class="fas fa-chart-pie"></i>
+          <div>
+            <h2>مراقب الأداء المتقدم</h2>
+            <p>تحليل تفصيلي لموارد النظام والعمليات النشطة</p>
+          </div>
+        </div>
+        <div class="sys-monitor-grid">
+          <div class="card chart-card">
+            <div class="card-head"><span class="card-tag">استهلاك المعالج (CPU)</span></div>
+            <div class="chart-wrapper"><canvas id="chart-cpu"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <div class="card-head"><span class="card-tag">استهلاك الذاكرة (RAM)</span></div>
+            <div class="chart-wrapper"><canvas id="chart-ram"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <div class="card-head"><span class="card-tag">حركة الشبكة (Network)</span></div>
+            <div class="chart-wrapper"><canvas id="chart-net"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <div class="card-head"><span class="card-tag">نشاط القرص (Disk)</span></div>
+            <div class="chart-wrapper"><canvas id="chart-disk"></canvas></div>
+          </div>
+        </div>
+      </section>
+
       <!-- ── VIEW: SETTINGS ── -->
       <section class="view" id="view-settings">
         <div class="view-header">
@@ -212,19 +276,28 @@
         </div>
 
         <div class="settings-grid-pro">
-          <!-- Connection Link Card -->
+          <!-- Performance & Display -->
           <div class="card settings-card">
-            <div class="card-head"><span class="card-tag"><i class="fas fa-link"></i> رابط الاتصال السريع</span></div>
+            <div class="card-head"><span class="card-tag"><i class="fas fa-gauge-high"></i> الأداء والعرض</span></div>
             <div class="card-body">
-              <p class="s-desc">أنشئ رابطاً يتيح للآخرين الاتصال بك بضغطة زر واحدة.</p>
-              <div class="link-gen-box">
-                <input type="text" id="share-link-input" readonly value="phantomdesk://connect/...">
-                <button class="btn-action btn-sm" id="btn-copy-link"><i class="fas fa-copy"></i> نسخ</button>
+              <div class="setting-row">
+                <label>تسريع الأجهزة (GPU)</label>
+                <label class="switch"><input type="checkbox" id="set-hw-accel" checked><span class="slider"></span></label>
+              </div>
+              <p class="s-desc">يحسن سلاسة الواجهة (يتطلب إعادة تشغيل البرنامج).</p>
+              
+              <div class="setting-row mt-15">
+                <label>جودة البث</label>
+                <div class="quality-selector">
+                  <button class="q-btn active" data-quality="high">عالية</button>
+                  <button class="q-btn" data-quality="med">متوسطة</button>
+                  <button class="q-btn" data-quality="low">سرعة</button>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Permissions Card -->
+          <!-- Permissions -->
           <div class="card settings-card">
             <div class="card-head"><span class="card-tag"><i class="fas fa-shield-halved"></i> صلاحيات المضيف</span></div>
             <div class="card-body">
@@ -243,57 +316,40 @@
             </div>
           </div>
 
-          <!-- Video Quality Card -->
+          <!-- Connection & Security -->
           <div class="card settings-card">
-            <div class="card-head"><span class="card-tag"><i class="fas fa-gauge-high"></i> الأداء والجودة</span></div>
+            <div class="card-head"><span class="card-tag"><i class="fas fa-lock"></i> الأمان والوصول</span></div>
             <div class="card-body">
-              <label class="s-label">جودة البث</label>
-              <div class="quality-selector">
-                <button class="q-btn active" data-quality="high">عالية</button>
-                <button class="q-btn" data-quality="med">متوسطة</button>
-                <button class="q-btn" data-quality="low">سرعة</button>
-              </div>
-              <div class="setting-row mt-15">
-                <label>تحجيم الشاشة</label>
-                <select id="setting-scale" class="setting-input">
-                  <option value="1">100%</option>
-                  <option value="0.75">75%</option>
-                  <option value="0.5">50%</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Static Password Card -->
-          <div class="card settings-card">
-            <div class="card-head"><span class="card-tag"><i class="fas fa-lock"></i> كلمة المرور الثابتة</span></div>
-            <div class="card-body">
-              <p class="s-desc">للوصول الدائم إلى هذا الجهاز دون تغيير الرمز.</p>
               <div class="pwd-static-box">
                 <input type="password" id="static-password-input" class="setting-input" placeholder="كلمة مرور ثابتة...">
                 <button class="btn-action" id="btn-save-static-pwd">حفظ</button>
               </div>
+              <p class="s-desc">للوصول الدائم دون تغيير الرمز تلقائياً.</p>
+              
+              <div class="link-gen-box mt-15">
+                <input type="text" id="share-link-input" readonly value="phantomdesk://connect/...">
+                <button class="btn-action btn-sm" id="btn-copy-link"><i class="fas fa-copy"></i> نسخ الرابط</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Diagnostics -->
+          <div class="card settings-card">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-tools"></i> أدوات التشخيص</span></div>
+            <div class="card-body">
+              <button class="btn-action btn-block" id="btn-test-capture">
+                <i class="fas fa-camera"></i> اختبار التقاط الشاشة
+              </button>
+              <div id="local-test-container" style="display: none; margin-top:10px; height: 120px; background: #000; border-radius: 8px; overflow: hidden; position: relative;">
+                <video id="local-test-video" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
+                <div id="local-test-status" style="position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; font-size: 10px; border-radius: 4px;">انتظار...</div>
+              </div>
             </div>
           </div>
         </div>
-      </section>
-            
-            <!-- Local Test Section -->
-            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 10px; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <label>اختبار التقاط الشاشة محلياً</label>
-                <button class="btn-sm" id="btn-test-capture" style="background: var(--primary); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
-                  <i class="fas fa-camera"></i> بدء الاختبار
-                </button>
-              </div>
-              <div id="local-test-container" style="display: none; width: 100%; height: 200px; background: #000; border-radius: 8px; overflow: hidden; position: relative;">
-                <video id="local-test-video" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
-                <div id="local-test-status" style="position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; font-size: 12px; border-radius: 4px;">انتظار...</div>
-              </div>
-            </div>
 
-            <button class="btn-save" id="btn-save-settings" style="margin-top: 15px;"><i class="fas fa-check"></i> حفظ الإعدادات</button>
-          </div>
+        <div class="settings-footer">
+          <button class="btn-save" id="btn-save-settings"><i class="fas fa-check"></i> حفظ جميع الإعدادات</button>
         </div>
       </section>
 

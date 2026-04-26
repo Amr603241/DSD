@@ -9,6 +9,8 @@ class InputCapture {
     this.enabled = false;
     this._bound = {};
     this._hostScreenSize = null;
+    this._rAF = null;
+    this._pendingMove = null;
   }
 
   async activate(videoElement) {
@@ -27,7 +29,12 @@ class InputCapture {
     this.videoEl.addEventListener('contextmenu', this._bound.contextmenu);
 
     // Mouse events
-    this._bound.mousemove = (e) => this._sendMouse('mousemove', e);
+    this._bound.mousemove = (e) => {
+      this._pendingMove = e;
+      if (!this._rAF) {
+        this._rAF = requestAnimationFrame(() => this._processMouseMove());
+      }
+    };
     this._bound.mousedown = (e) => this._sendMouse('mousedown', e);
     this._bound.mouseup   = (e) => this._sendMouse('mouseup', e);
     this._bound.dblclick  = (e) => this._sendMouse('dblclick', e);
@@ -68,22 +75,22 @@ class InputCapture {
     document.removeEventListener('keyup',   this._bound.keyup);
   }
 
+  _processMouseMove() {
+    this._rAF = null;
+    if (this._pendingMove) {
+      this._sendMouse('mousemove', this._pendingMove);
+      this._pendingMove = null;
+    }
+  }
+
   _sendMouse(type, e) {
     if (!this.enabled || !this.videoEl) return;
 
-    // TURBO PERFORMANCE: Throttle mousemove to 8ms (~125fps) for extreme response
-    if (type === 'mousemove') {
-      const now = Date.now();
-      if (this._lastMove && (now - this._lastMove < 8)) return;
-      
-      // MINIMUM DELTA: Only send if moved significantly
-      if (this._lastX !== undefined && this._lastY !== undefined) {
-        const dx = Math.abs(e.clientX - this._lastX);
-        const dy = Math.abs(e.clientY - this._lastY);
-        if (dx < 0.5 && dy < 0.5) return;
-      }
-      
-      this._lastMove = now;
+    // MINIMUM DELTA: Only send if moved significantly
+    if (type === 'mousemove' && this._lastX !== undefined && this._lastY !== undefined) {
+      const dx = Math.abs(e.clientX - this._lastX);
+      const dy = Math.abs(e.clientY - this._lastY);
+      if (dx < 0.5 && dy < 0.5) return;
       this._lastX = e.clientX;
       this._lastY = e.clientY;
     }
@@ -91,30 +98,36 @@ class InputCapture {
     const rect = this.videoEl.getBoundingClientRect();
     const vidW = this.videoEl.videoWidth || 1920;
     const vidH = this.videoEl.videoHeight || 1080;
-    const containerRatio = rect.width / rect.height;
-    const videoRatio = vidW / vidH;
+    
+    // Optimized Mapping Logic
+    if (!this._cachedRatios || this._lastRectW !== rect.width || this._lastRectH !== rect.height) {
+      const containerRatio = rect.width / rect.height;
+      const videoRatio = vidW / vidH;
+      let actualW, actualH, offsetX, offsetY;
 
-    let actualW, actualH, offsetX, offsetY;
+      if (containerRatio > videoRatio) {
+        actualH = rect.height;
+        actualW = actualH * videoRatio;
+        offsetY = 0; offsetX = (rect.width - actualW) / 2;
+      } else {
+        actualW = rect.width;
+        actualH = actualW / videoRatio;
+        offsetX = 0; offsetY = (rect.height - actualH) / 2;
+      }
 
-    if (containerRatio > videoRatio) {
-      // Pillarboxed (bars on left/right)
-      actualH = rect.height;
-      actualW = actualH * videoRatio;
-      offsetY = 0;
-      offsetX = (rect.width - actualW) / 2;
-    } else {
-      // Letterboxed (bars on top/bottom)
-      actualW = rect.width;
-      actualH = actualW / videoRatio;
-      offsetX = 0;
-      offsetY = (rect.height - actualH) / 2;
+      this._cachedRatios = {
+        w: actualW, h: actualH, ox: offsetX, oy: offsetY,
+        rw: this._hostScreenSize.width / actualW,
+        rh: this._hostScreenSize.height / actualH
+      };
+      this._lastRectW = rect.width;
+      this._lastRectH = rect.height;
     }
 
-    // Map relative coordinates to host screen
-    const x = Math.round(((e.clientX - rect.left) - offsetX) * (this._hostScreenSize.width / actualW));
-    const y = Math.round(((e.clientY - rect.top) - offsetY) * (this._hostScreenSize.height / actualH));
+    const r = this._cachedRatios;
+    const x = Math.round(((e.clientX - rect.left) - r.ox) * r.rw);
+    const y = Math.round(((e.clientY - rect.top) - r.oy) * r.rh);
 
-    // Clamp to screen bounds
     const cx = Math.max(0, Math.min(x, this._hostScreenSize.width - 1));
     const cy = Math.max(0, Math.min(y, this._hostScreenSize.height - 1));
     this.onData({ type, x: cx, y: cy, button: e.button });
