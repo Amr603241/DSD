@@ -656,6 +656,37 @@ input:checked + .slider::before { transform:translateX(20px); }
   .home-grid { grid-template-columns:1fr; }
 }
 
+/* ── Floating Mini-Player (PiP) ── */
+.pip-mode #view-session {
+  display: block !important;
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 320px;
+  height: 180px;
+  z-index: 99999;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  border: 2px solid var(--accent);
+  animation: slideInPip 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: #000;
+}
+
+.pip-mode #session-toolbar, 
+.pip-mode .session-hud {
+  display: none !important; /* Hide UI in mini mode */
+}
+
+.pip-mode #remote-video {
+  pointer-events: none; /* No control in mini mode to prevent accidents */
+}
+
+@keyframes slideInPip {
+  from { transform: scale(0.5) translateY(100px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
 /* ── Settings PRO Grid ── */
 .settings-grid-pro {
   display: grid;

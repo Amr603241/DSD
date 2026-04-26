@@ -66,13 +66,23 @@ class UIManager {
   }
 
   switchView(name) {
+    const isSessionActive = !!document.getElementById('nav-session-pulse')?.style.display === 'flex' || document.body.classList.contains('has-active-session');
+    
     Object.keys(this.views).forEach(k => {
       const v = this.views[k];
       if (v) { v.classList.toggle('active', k === name); }
     });
+    
     document.querySelectorAll('.nav-item').forEach(b => {
       b.classList.toggle('active', b.dataset.view === name);
     });
+    
+    // Radical Fix: Floating PiP Mode
+    if (isSessionActive && name !== 'session' && name !== 'home') {
+      document.body.classList.add('pip-mode');
+    } else {
+      document.body.classList.remove('pip-mode');
+    }
     
     // Performance optimization: disable blur effects during active session
     document.body.classList.toggle('view-active-session', name === 'session');

@@ -68,6 +68,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         
         // Hide Session Pulse if no sessions left
         if (state.sessions.size === 0) {
+          document.body.classList.remove('has-active-session', 'pip-mode');
           const pulseNav = $('nav-session-pulse');
           if (pulseNav) pulseNav.style.display = 'none';
         }
@@ -241,6 +242,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     if (pulseNav) pulseNav.style.display = 'flex';
 
     rtc.on('stream', (stream) => {
+      document.body.classList.add('has-active-session');
       if (state.activeSessionId !== socketId) return;
       
       const video = $('remote-video');

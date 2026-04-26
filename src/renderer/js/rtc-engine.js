@@ -169,6 +169,18 @@ class RTCEngine {
         this._fire('log-debug', '[RTC] Adding new track to PC');
         this.pc.addTrack(videoTrack, stream);
       }
+      
+      // TURBO PERFORMANCE: Set Bitrate & Priority
+      setTimeout(() => {
+        const sender = this.pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          const params = sender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          params.encodings[0].maxBitrate = 4000000; // 4Mbps for ultra-smooth control
+          params.encodings[0].priority = 'high';
+          sender.setParameters(params).catch(() => {});
+        }
+      }, 500);
     }
     return stream;
   }
