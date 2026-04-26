@@ -50,8 +50,9 @@ class RTCEngine {
     };
 
     if (isOfferer) {
-      // Viewer Side: Explicitly request video
+      // Viewer Side: Explicitly request video to ensure SDP has m=video line
       this.pc.addTransceiver('video', { direction: 'recvonly' });
+      // Create DataChannel
       this.dataChannel = this.pc.createDataChannel('phantom-control', { ordered: false, maxRetransmits: 0 });
       this._setupDataChannel(this.dataChannel);
     } else {

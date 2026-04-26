@@ -4,6 +4,9 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { exec, spawn } = require('child_process');
 
+// ── Fix Black Screen Issues ──
+app.disableHardwareAcceleration();
+
 // ── Single Instance Lock ──
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -202,14 +205,12 @@ ipcMain.handle('is-maximized', () => mainWindow?.isMaximized() || false);
 // ── App Lifecycle ──
 app.whenReady().then(() => {
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-    desktopCapturer.getSources({ types: ['screen', 'window'] }).then(sources => {
-      // Prioritize primary screen, then any screen, then any source
-      const screenSource = sources.find(s => s.id.startsWith('screen:1') || s.id.startsWith('screen:0')) || 
-                           sources.find(s => s.id.startsWith('screen:')) || 
-                           sources[0];
+    desktopCapturer.getSources({ types: ['screen'] }).then(sources => {
+      // Safest approach: just take the first screen source
+      const screenSource = sources[0];
       
       if (screenSource) {
-        writeToLog(`[MEDIA] Auto-selecting source: ${screenSource.name} (${screenSource.id})`);
+        writeToLog(`[MEDIA] Auto-selecting screen: ${screenSource.name} (${screenSource.id})`);
         callback({ video: screenSource });
       } else {
         writeToLog(`[MEDIA] No screen sources found!`);
