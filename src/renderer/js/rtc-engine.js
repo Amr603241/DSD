@@ -86,12 +86,30 @@ class RTCEngine {
 
   async startScreenShare() {
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 20, max: 30 } },
-        audio: false
+      this._fire('log-debug', '[RTC] Requesting screen sources from main process...');
+      const sources = await window.phantom.getScreenSources();
+      if (!sources || sources.length === 0) throw new Error('No screen sources found');
+      
+      // Prioritize the primary display or "Entire Screen"
+      const screen = sources.find(s => s.id.startsWith('screen:1') || s.name.toLowerCase().includes('entire')) || sources[0];
+      this._fire('log-debug', `[RTC] Selecting source: ${screen.name} (${screen.id})`);
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: screen.id,
+            minWidth: 1280,
+            maxWidth: 1920,
+            minHeight: 720,
+            maxHeight: 1080
+          }
+        }
       });
       return this._handleNewStream(stream);
     } catch (e) {
+      this._fire('log-debug', `[RTC] Capture failed: ${e.message}. Using test stream.`);
       return this._handleNewStream(this._createTestStream());
     }
   }

@@ -204,23 +204,6 @@ ipcMain.handle('is-maximized', () => mainWindow?.isMaximized() || false);
 
 // ── App Lifecycle ──
 app.whenReady().then(() => {
-  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-    desktopCapturer.getSources({ types: ['screen'] }).then(sources => {
-      // Safest approach: just take the first screen source
-      const screenSource = sources[0];
-      
-      if (screenSource) {
-        writeToLog(`[MEDIA] Auto-selecting screen: ${screenSource.name} (${screenSource.id})`);
-        callback({ video: screenSource });
-      } else {
-        writeToLog(`[MEDIA] No screen sources found!`);
-        callback({});
-      }
-    }).catch(e => {
-      writeToLog(`[MEDIA] Error getting sources: ${e.message}`);
-      callback({});
-    });
-  });
   createWindow();
 });
 app.on('window-all-closed', () => app.quit());
