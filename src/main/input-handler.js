@@ -6,7 +6,7 @@
  */
 
 let user32 = null;
-let SendInput, GetSystemMetrics;
+let SendInput, GetSystemMetrics, MapVirtualKey;
 
 // ── Constants & Structs ──
 const INPUT_MOUSE    = 0;
@@ -65,7 +65,7 @@ try {
   });
 
   SendInput = user32.func('uint32 __stdcall SendInput(uint32, INPUT *, int)');
-  const MapVirtualKey = user32.func('uint32 __stdcall MapVirtualKeyA(uint32, uint32)');
+  MapVirtualKey = user32.func('uint32 __stdcall MapVirtualKeyA(uint32, uint32)');
   
   // Expose to global for reuse
   this.MapVirtualKey = MapVirtualKey;
@@ -84,9 +84,9 @@ try {
 // ── VK Code Map (Static) ──
 const VK_MAP = {
   'Backspace': 0x08, 'Tab': 0x09, 'Enter': 0x0D,
-  'ShiftLeft': 0x10, 'ShiftRight': 0x10,
-  'ControlLeft': 0x11, 'ControlRight': 0x11,
-  'AltLeft': 0x12, 'AltRight': 0x12,
+  'ShiftLeft': 0xA0, 'ShiftRight': 0xA1,
+  'ControlLeft': 0xA2, 'ControlRight': 0xA3,
+  'AltLeft': 0xA4, 'AltRight': 0xA5,
   'Pause': 0x13, 'CapsLock': 0x14, 'Escape': 0x1B,
   'Space': 0x20, 'PageUp': 0x21, 'PageDown': 0x22,
   'End': 0x23, 'Home': 0x24,
@@ -139,8 +139,13 @@ function getMetrics() {
 
 function sendInputs(inputs) {
   if (!SendInput || !inputs || inputs.length === 0) return;
-  // Size of INPUT struct is usually 40 bytes on x64
-  SendInput(inputs.length, inputs, 40);
+  try {
+    // Koffi can handle JS arrays of objects for struct pointers,
+    // but we ensure it knows the size of the struct (40 bytes on x64).
+    SendInput(inputs.length, inputs, 40);
+  } catch (e) {
+    console.error('[INPUT ERROR] SendInput failed:', e.message);
+  }
 }
 
 function createMouseInput(dx, dy, flags, data = 0) {
@@ -239,7 +244,7 @@ function handleInput(data) {
           flags |= KEYEVENTF_SCANCODE;
           sendInputs([{
             type: INPUT_KEYBOARD,
-            u: { ki: { wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
+            u: { ki: { wVk: 0, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
           }]);
           return;
         }
@@ -257,7 +262,7 @@ function handleInput(data) {
           flags |= KEYEVENTF_SCANCODE;
           sendInputs([{
             type: INPUT_KEYBOARD,
-            u: { ki: { wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
+            u: { ki: { wVk: 0, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
           }]);
           return;
         }
