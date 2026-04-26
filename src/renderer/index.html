@@ -320,11 +320,34 @@
           <div class="session-toolbar" id="session-toolbar">
             <button class="stool" id="stool-refresh" title="تحديث البث"><i class="fas fa-sync-alt"></i></button>
             <button class="stool" id="stool-monitors" title="تبديل الشاشات"><i class="fas fa-desktop"></i></button>
+            <button class="stool" id="stool-tasks" title="مدير المهام"><i class="fas fa-microchip"></i></button>
             <button class="stool stool-turbo" id="stool-turbo" title="Turbo Mode (أداء فائق)"><i class="fas fa-gauge-high"></i></button>
             <button class="stool" id="stool-fullscreen" title="ملء الشاشة"><i class="fas fa-expand"></i></button>
             <button class="stool" id="stool-screenshot" title="لقطة شاشة"><i class="fas fa-camera"></i></button>
             <button class="stool" id="stool-chat" title="محادثة"><i class="fas fa-message"></i></button>
             <button class="stool stool-end" id="stool-disconnect" title="إنهاء الجلسة"><i class="fas fa-power-off"></i></button>
+          </div>
+
+          <!-- Remote Tasks Panel -->
+          <div class="tasks-panel" id="tasks-panel" style="display: none;">
+            <div class="tasks-header">
+              <span><i class="fas fa-microchip"></i> العمليات النشطة</span>
+              <div class="tasks-stats">
+                <span id="remote-cpu">CPU: —%</span>
+                <span id="remote-ram">RAM: —%</span>
+              </div>
+              <button class="panel-close" id="btn-tasks-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="tasks-list-container">
+              <table class="tasks-table">
+                <thead>
+                  <tr><th>العملية</th><th>CPU</th><th>الذاكرة</th></tr>
+                </thead>
+                <tbody id="tasks-list-body">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <!-- Chat Overlay -->

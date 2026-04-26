@@ -183,6 +183,78 @@ body {
 .view { display:none; flex-direction:column; height:100%; }
 .view.active { display:flex; }
 
+/* ── Tasks Panel ── */
+.tasks-panel {
+  position: absolute;
+  top: 70px;
+  right: 20px;
+  width: 350px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(25px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  z-index: 1000;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  animation: slideIn 0.3s ease;
+  overflow: hidden;
+}
+
+.tasks-header {
+  padding: 15px;
+  background: rgba(255,255,255,0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.tasks-stats {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.tasks-list-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tasks-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tasks-table th {
+  text-align: right;
+  padding: 10px;
+  background: rgba(0,0,0,0.2);
+  color: var(--text-dim);
+}
+
+.tasks-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.tasks-table tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+.panel-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(50px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
 /* ── Home Grid ── */
 .home-grid {
   display: grid;

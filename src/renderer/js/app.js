@@ -56,6 +56,7 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     add(socketId, deviceId, rtcInstance) {
       const s = new Session(socketId, deviceId, rtcInstance);
       state.sessions.set(socketId, s);
+      addToHistory(deviceId);
       this.renderTabs();
       this.switch(socketId);
       return s;
@@ -260,20 +261,23 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
     // Unified Control Data Handler with PERMISSIONS
     rtc.on('control-data', async (data) => {
-      // If we are viewer, handle ghost cursor from host
+      // If we are viewer, handle ghost cursor and system info from host
       if (!state.isHost) {
         if (data.type === 'ghost-cursor') {
           const ghost = $('ghost-cursor');
           const video = $('remote-video');
           if (ghost && video) {
             const rect = video.getBoundingClientRect();
-            // Simple mapping for now
             const gx = (data.x / 1920) * rect.width;
             const gy = (data.y / 1080) * rect.height;
             ghost.style.left = `${gx}px`;
             ghost.style.top = `${gy}px`;
             ghost.style.display = 'block';
           }
+        } else if (data.type === 'system-info') {
+          if ($('remote-cpu')) $('remote-cpu').innerText = `CPU: ${data.cpu}%`;
+          if ($('remote-ram')) $('remote-ram').innerText = `RAM: ${data.ram}%`;
+          renderTasksList(data.tasks);
         }
         return;
       }
@@ -290,7 +294,6 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       else if (data.type.startsWith('mouse') || data.type === 'dblclick' || data.type === 'wheel') {
         if (canMouse) {
           window.phantom.simulateInput(data);
-          // Send back ghost cursor position
           rtc.sendControl({ type: 'ghost-cursor', x: data.x, y: data.y });
         }
       } 
@@ -301,6 +304,15 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
         window.phantom.writeClipboard(data.text);
       }
     });
+
+    // Host: Send System Info periodically
+    if (state.isHost) {
+      const infoInterval = setInterval(async () => {
+        if (!state.sessions.has(socketId)) return clearInterval(infoInterval);
+        const info = await window.phantom.getSystemInfo();
+        rtc.sendControl({ type: 'system-info', ...info });
+      }, 5000);
+    }
 
     rtc.on('stats-update', (stats) => {
       if (state.activeSessionId === socketId) {
@@ -473,11 +485,58 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
   $('btn-chat-send')?.addEventListener('click', sendChat);
   $('chat-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
 
+  function renderTasksList(tasks) {
+    const body = $('tasks-list-body');
+    if (!body || !tasks) return;
+    body.innerHTML = tasks.map(t => `
+      <tr>
+        <td>${t.name}</td>
+        <td>${t.cpu}%</td>
+        <td>${t.mem}MB</td>
+      </tr>
+    `).join('');
+  }
+
+  $('stool-tasks')?.addEventListener('click', () => {
+    const panel = $('tasks-panel');
+    if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  $('btn-tasks-close')?.addEventListener('click', () => {
+    if ($('tasks-panel')) $('tasks-panel').style.display = 'none';
+  });
+
   const inputCapture = new InputCapture((data) => {
     const s = state.sessions.get(state.activeSessionId);
     if (s && !state.isHost) s.rtc.sendControl(data);
   });
   inputCapture.activate($('remote-video'));
+
+  // Session History Manager
+  function addToHistory(deviceId) {
+    let history = JSON.parse(localStorage.getItem('phantom_history') || '[]');
+    if (!history.includes(deviceId)) {
+      history.unshift(deviceId);
+      if (history.length > 10) history.pop();
+      localStorage.setItem('phantom_history', JSON.stringify(history));
+      renderHistory();
+    }
+  }
+
+  function renderHistory() {
+    const container = $('recent-list');
+    if (!container) return;
+    const history = JSON.parse(localStorage.getItem('phantom_history') || '[]');
+    container.innerHTML = history.length ? '' : '<p class="empty-text">لا يوجد تاريخ اتصالات</p>';
+    history.forEach(id => {
+      const item = document.createElement('div');
+      item.className = 'recent-item';
+      item.innerHTML = `<span>${id}</span><button class="btn-sm"><i class="fas fa-bolt"></i></button>`;
+      item.onclick = () => { if ($('remote-id-input')) $('remote-id-input').value = id; };
+      container.appendChild(item);
+    });
+  }
+  renderHistory();
 
   // Global Utils
   $('btn-copy-id')?.addEventListener('click', () => {
