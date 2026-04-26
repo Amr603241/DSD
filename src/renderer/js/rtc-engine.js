@@ -91,13 +91,19 @@ class RTCEngine {
 
   async startScreenShare() {
     try {
-      this._fire('log-debug', '[RTC] Requesting screen sources from main process...');
+      this._fire('log-debug', '[RTC] Fetching all available screen sources...');
       const sources = await window.phantom.getScreenSources();
       if (!sources || sources.length === 0) throw new Error('No screen sources found');
       
-      // Prioritize the primary display or "Entire Screen"
-      const screen = sources.find(s => s.id.startsWith('screen:1') || s.name.toLowerCase().includes('entire')) || sources[0];
-      this._fire('log-debug', `[RTC] Selecting source: ${screen.name} (${screen.id})`);
+      // Log all sources for diagnostics
+      sources.forEach(s => this._fire('log-debug', `[RTC] Source Found: ${s.name} (ID: ${s.id})`));
+
+      // Strategy: 1. Primary Screen, 2. "Entire Screen", 3. Screen with ID 'screen:0:0', 4. First available
+      const screen = sources.find(s => s.id.startsWith('screen:0') || s.id.startsWith('screen:1')) || 
+                     sources.find(s => s.name.toLowerCase().includes('entire')) || 
+                     sources[0];
+      
+      this._fire('log-debug', `[RTC] Final Selection: ${screen.name} (${screen.id})`);
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
@@ -108,13 +114,21 @@ class RTCEngine {
             minWidth: 1280,
             maxWidth: 1920,
             minHeight: 720,
-            maxHeight: 1080
+            maxHeight: 1080,
+            maxFrameRate: 30
           }
         }
       });
+
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        this._fire('log-debug', `[RTC] Track generated: ${track.label}, Enabled: ${track.enabled}, State: ${track.readyState}`);
+        track.onended = () => this._fire('log-debug', '[RTC] Screen track ended unexpectedly');
+      }
+
       return this._handleNewStream(stream);
     } catch (e) {
-      this._fire('log-debug', `[RTC] Capture failed: ${e.message}. Using test stream.`);
+      this._fire('log-debug', `[RTC] Capture Error: ${e.message}`);
       return this._handleNewStream(this._createTestStream());
     }
   }

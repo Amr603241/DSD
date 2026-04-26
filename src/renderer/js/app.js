@@ -239,13 +239,43 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       }
     });
 
-    // Real-time Visual Monitor
+    // Unified Stats Monitor
     rtc.on('stats-update', (stats) => {
       if (state.activeSessionId === socketId) {
-        const statsEl = $('diag-stats');
-        if (statsEl) {
-          statsEl.innerHTML = `📡 FPS: ${stats.fps} | 📶 Latency: ${state.latency}ms`;
-          statsEl.style.color = stats.fps > 0 ? '#10b981' : '#ef4444';
+        ui.updateHUD(stats.latency || 0, Math.round(stats.fps));
+        ui.updateDiagStats({
+          iceState: stats.iceState || 'Connected',
+          latency: stats.latency || 0,
+          signaling: 'Active',
+          bitrate: stats.bitrate || 2500,
+          sessionId: deviceId,
+          peerType: state.isHost ? 'Host' : 'Viewer'
+        });
+        
+        // HUD color feedback
+        const hudFps = $('hud-fps');
+        if (hudFps) hudFps.style.color = stats.fps > 0 ? '#fff' : '#ef4444';
+      }
+    });
+
+    // Unified Control Data Handler
+    rtc.on('control-data', async (data) => {
+      if (state.isHost) {
+        if (data.type === 'refresh-stream') {
+          log('تلقيت طلباً لتحديث البث...', 'info');
+          await rtc.startScreenShare();
+        } else if (data.type === 'chat-message') {
+          appendChatMessage('received', data.text);
+        } else if (data.type === 'clipboard-sync') {
+          window.phantom.writeClipboard(data.text);
+        } else {
+          window.phantom.simulateInput(data);
+        }
+      } else {
+        if (data.type === 'chat-message') {
+          appendChatMessage('received', data.text);
+        } else if (data.type === 'clipboard-sync') {
+          window.phantom.writeClipboard(data.text);
         }
       }
     });
@@ -260,38 +290,32 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       }, 3000);
     }
 
-    rtc.on('datachannel-open', async () => {
-      log('قناة البيانات مفتوحة - التحكم نشط', 'success');
-    });
-
-    rtc.on('control-data', (data) => {
-      if (state.isHost) {
-        if (data.type === 'chat-message') appendChatMessage('received', data.text);
-        else if (data.type === 'clipboard-sync') window.phantom.writeClipboard(data.text);
-        else window.phantom.simulateInput(data);
-      } else {
-        if (data.type === 'chat-message') appendChatMessage('received', data.text);
-        else if (data.type === 'clipboard-sync') window.phantom.writeClipboard(data.text);
-      }
-    });
-
+    rtc.on('datachannel-open', () => log('قناة البيانات مفتوحة - التحكم نشط', 'success'));
     rtc.on('ice-candidate', (c) => signaling.sendIceCandidate(socketId, c));
-    rtc.on('stats-update', (stats) => {
-      if (state.activeSessionId === socketId) {
-        ui.updateHUD(stats.latency || 0, Math.round(stats.fps));
-        ui.updateDiagStats({
-          iceState: stats.iceState || 'Connected',
-          latency: stats.latency || 0,
-          signaling: 'Active',
-          bitrate: stats.bitrate || 2500,
-          sessionId: deviceId,
-          peerType: state.isHost ? 'Host' : 'Viewer'
-        });
-      }
-    });
   }
 
   // ── 4. UI Events ──
+  $('stool-refresh')?.addEventListener('click', () => {
+    const s = state.sessions.get(state.activeSessionId);
+    if (s) {
+      log('جاري طلب تحديث البث من المضيف...', 'info');
+      s.rtc.sendControl({ type: 'refresh-stream' });
+    }
+  });
+
+  $('stool-fullscreen')?.addEventListener('click', () => {
+    const v = $('remote-video');
+    if (v?.requestFullscreen) v.requestFullscreen();
+  });
+
+  $('stool-chat')?.addEventListener('click', () => {
+    const overlay = $('chat-overlay');
+    if (overlay) overlay.style.display = overlay.style.display === 'none' ? 'flex' : 'none';
+  });
+
+  $('btn-chat-close')?.addEventListener('click', () => {
+    if ($('chat-overlay')) $('chat-overlay').style.display = 'none';
+  });
   $('btn-connect')?.addEventListener('click', () => {
     const id = $('remote-id-input')?.value.trim();
     if (!id) return ui.showToast('أدخل معرّف الجهاز', 'warning');
