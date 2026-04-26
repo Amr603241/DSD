@@ -115,19 +115,24 @@ class RTCEngine {
     };
   }
 
-  async startScreenShare() {
+  async startScreenShare(specificSourceId = null) {
     try {
       this._fire('log-debug', '[RTC] Fetching all available screen sources...');
       const sources = await window.phantom.getScreenSources();
       if (!sources || sources.length === 0) throw new Error('No screen sources found');
       
-      // Log all sources for diagnostics
-      sources.forEach(s => this._fire('log-debug', `[RTC] Source Found: ${s.name} (ID: ${s.id})`));
+      // Send monitor list to viewer
+      this.sendControl({ type: 'monitor-list', sources: sources.map(s => ({ id: s.id, name: s.name })) });
 
-      // Strategy: 1. Primary Screen, 2. "Entire Screen", 3. Screen with ID 'screen:0:0', 4. First available
-      const screen = sources.find(s => s.id.startsWith('screen:0') || s.id.startsWith('screen:1')) || 
-                     sources.find(s => s.name.toLowerCase().includes('entire')) || 
-                     sources[0];
+      let screen;
+      if (specificSourceId) {
+        screen = sources.find(s => s.id === specificSourceId) || sources[0];
+      } else {
+        // Strategy: 1. Primary Screen, 2. "Entire Screen", 3. Screen with ID 'screen:0:0', 4. First available
+        screen = sources.find(s => s.id.startsWith('screen:0') || s.id.startsWith('screen:1')) || 
+                 sources.find(s => s.name.toLowerCase().includes('entire')) || 
+                 sources[0];
+      }
       
       this._fire('log-debug', `[RTC] Final Selection: ${screen.name} (${screen.id})`);
 
@@ -267,8 +272,11 @@ class RTCEngine {
       : this.dataChannel;
 
     if (channel && channel.readyState === 'open') {
-      // Use low-level binary transfer if possible, or just optimized JSON
-      channel.send(JSON.stringify(data));
+      if (data instanceof ArrayBuffer || data instanceof Uint8Array || data instanceof Blob) {
+        channel.send(data);
+      } else {
+        channel.send(JSON.stringify(data));
+      }
     }
   }
 

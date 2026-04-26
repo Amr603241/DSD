@@ -61,4 +61,10 @@ contextBridge.exposeInMainWorld('phantom', {
   focusWindow:       () => ipcRenderer.send('focus-window'),
   logToFile:         (level, msg) => ipcRenderer.send('log-to-file', { level, msg }),
   onProtocolLink:    (cb) => ipcRenderer.on('protocol-link', (_, l) => cb(l)),
+
+  // ── Professional Features ──
+  getFiles:          (p) => ipcRenderer.invoke('get-files', p),
+  saveFileChunk:     (d) => ipcRenderer.invoke('file-transfer-chunk', d),
+  togglePrivacyMode: (e) => ipcRenderer.invoke('toggle-privacy-mode', e),
+  getCursorPosition: () => ipcRenderer.invoke('get-cursor-position'),
 });

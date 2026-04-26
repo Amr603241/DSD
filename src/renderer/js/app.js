@@ -272,7 +272,19 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
           if ($('remote-ram')) $('remote-ram').innerText = `RAM: ${Math.round(data.ramUsage || 0)}%`;
           if (data.tasks) renderTasksList(data.tasks);
         }
-        else if (data.type === 'shortcut') {
+        else if (data.type === 'monitor-list') {
+          renderMonitorsList(data.sources);
+        } else if (data.type === 'get-files') {
+          window.phantom.getFiles(data.path).then(files => {
+            rtc.sendControl({ type: 'file-list', files, path: data.path });
+          });
+        } else if (data.type === 'file-list') {
+          renderRemoteFiles(data.files, data.path);
+        } else if (data.type === 'file-chunk') {
+          window.phantom.saveFileChunk(data);
+        } else if (data.type === 'switch-monitor') {
+          await rtc.startScreenShare(data.sourceId);
+        } else if (data.type === 'shortcut') {
           if (data.action === 'cad') {
             // Note: Ctrl+Alt+Del is special on Windows and cannot be simulated via standard SendInput
             // for security reasons unless the app is signed and running as SYSTEM/Service.
@@ -410,6 +422,124 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     btn.style.color = 'var(--danger)';
     ui.showToast('بدأ تسجيل الجلسة...', 'info');
   });
+
+  $('stool-monitors')?.addEventListener('click', () => {
+    const p = $('monitors-panel');
+    if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  });
+
+  $('btn-monitors-close')?.addEventListener('click', () => {
+    if ($('monitors-panel')) $('monitors-panel').style.display = 'none';
+  });
+
+  function renderMonitorsList(sources) {
+    const list = $('monitors-list');
+    if (!list) return;
+    list.innerHTML = '';
+    sources.forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-action btn-sm btn-block';
+      btn.style.textAlign = 'left';
+      btn.innerHTML = `<i class="fas fa-desktop"></i> ${s.name}`;
+      btn.onclick = () => {
+        rtc.sendControl({ type: 'switch-monitor', sourceId: s.id });
+        ui.showToast(`جاري التحويل إلى ${s.name}...`, 'info');
+      };
+      list.appendChild(btn);
+    });
+  }
+
+  // ── File Explorer Logic ──
+  $('nav-files')?.addEventListener('click', async () => {
+    ui.switchView('files');
+    loadLocalFiles();
+    if (state.activeSessionId) {
+      rtc.sendControl({ type: 'get-files', path: null });
+    }
+  });
+
+  async function loadLocalFiles(dir = null) {
+    const files = await window.phantom.getFiles(dir);
+    const list = $('local-files');
+    if (!list) return;
+    list.innerHTML = '';
+    files.forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `
+        <i class="fas ${f.isDir ? 'fa-folder' : 'fa-file'}"></i>
+        <span class="f-name">${f.name}</span>
+        <span class="f-size">${f.isDir ? '' : formatSize(f.size)}</span>
+      `;
+      if (f.isDir) item.onclick = () => loadLocalFiles(f.path);
+      list.appendChild(item);
+    });
+    if (dir) $('local-path').value = dir;
+  }
+
+  function renderRemoteFiles(files, path) {
+    const list = $('remote-files');
+    if (!list) return;
+    list.innerHTML = '';
+    files.forEach(f => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `
+        <i class="fas ${f.isDir ? 'fa-folder' : 'fa-file'}"></i>
+        <span class="f-name">${f.name}</span>
+        <span class="f-size">${f.isDir ? '' : formatSize(f.size)}</span>
+      `;
+      if (f.isDir) item.onclick = () => rtc.sendControl({ type: 'get-files', path: f.path });
+      list.appendChild(item);
+    });
+    if (path) $('remote-path').value = path;
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  $('btn-upload-file')?.addEventListener('click', () => {
+    const inp = document.getElementById('file-input-hidden');
+    inp.onchange = async () => {
+      if (!inp.files.length) return;
+      const file = inp.files[0];
+      uploadFile(file);
+    };
+    inp.click();
+  });
+
+  async function uploadFile(file) {
+    if (!state.activeSessionId) return ui.showToast('يجب الاتصال أولاً', 'error');
+    
+    const CHUNK_SIZE = 16384; // 16KB
+    const total = Math.ceil(file.size / CHUNK_SIZE);
+    const id = Math.random().toString(36).substr(2, 9);
+    
+    ui.showToast(`جاري إرسال ${file.name}...`, 'info');
+    
+    for (let i = 0; i < total; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(file.size, start + CHUNK_SIZE);
+      const blob = file.slice(start, end);
+      const buffer = await blob.arrayBuffer();
+      
+      rtc.sendControl({
+        type: 'file-chunk',
+        id,
+        name: file.name,
+        chunk: Array.from(new Uint8Array(buffer)), // Base64 alternative: JSON safe
+        total,
+        index: i
+      });
+      
+      if (i % 10 === 0) await new Promise(r => setTimeout(r, 10)); // Prevent congestion
+    }
+  }
 
   $('stool-privacy')?.addEventListener('click', () => {
     state.privacyActive = !state.privacyActive;

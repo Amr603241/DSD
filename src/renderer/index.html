@@ -218,16 +218,21 @@
         </div>
         <div class="files-container">
           <div class="card file-panel">
-            <div class="card-head"><span class="card-tag">الجهاز المحلي</span></div>
-            <div class="file-list" id="local-files">
-              <div class="file-placeholder"><i class="fas fa-folder-open"></i><span>قريباً: إدارة الملفات المحلية</span></div>
-            </div>
+            <div class="file-path-bar"><input type="text" id="local-path" value="C:\" readonly></div>
+            <div class="file-list" id="local-files"></div>
+            <div class="file-footer"><button class="btn-action btn-sm" id="btn-upload-file">إرسال ملف <i class="fas fa-upload"></i></button></div>
           </div>
           <div class="file-actions-mid">
-            <button class="btn-icon"><i class="fas fa-chevron-left"></i></button>
-            <button class="btn-icon"><i class="fas fa-chevron-right"></i></button>
+            <button class="btn-icon" id="btn-file-send-to-remote"><i class="fas fa-chevron-right"></i></button>
+            <button class="btn-icon" id="btn-file-send-to-local"><i class="fas fa-chevron-left"></i></button>
           </div>
           <div class="card file-panel">
+            <div class="card-head"><span class="card-tag">الجهاز البعيد</span></div>
+            <div class="file-path-bar"><input type="text" id="remote-path" value="Desktop" readonly></div>
+            <div class="file-list" id="remote-files">
+               <div class="file-placeholder"><span>يجب أن تكون في جلسة نشطة</span></div>
+            </div>
+          </div>
             <div class="card-head"><span class="card-tag">الجهاز البعيد</span></div>
             <div class="file-list" id="remote-files">
               <div class="file-placeholder"><i class="fas fa-cloud-download-alt"></i><span>بانتظار الاتصال...</span></div>
@@ -387,6 +392,17 @@
             <button class="stool" id="stool-screenshot" title="لقطة شاشة"><i class="fas fa-camera"></i></button>
             <button class="stool" id="stool-chat" title="محادثة"><i class="fas fa-message"></i></button>
             <button class="stool stool-end" id="stool-disconnect" title="إنهاء الجلسة"><i class="fas fa-power-off"></i></button>
+          </div>
+
+          <!-- Monitors Panel -->
+          <div class="tasks-panel" id="monitors-panel" style="display: none;">
+            <div class="tasks-header">
+              <span><i class="fas fa-desktop"></i> تبديل الشاشات</span>
+              <button class="panel-close" id="btn-monitors-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="monitors-list" id="monitors-list" style="padding: 15px; display: flex; flex-direction: column; gap: 8px;">
+              <!-- Injected via JS -->
+            </div>
           </div>
 
           <!-- Remote Tasks Panel -->

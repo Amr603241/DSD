@@ -242,6 +242,7 @@ ipcMain.on('window-minimize', () => mainWindow?.minimize());
 ipcMain.on('window-maximize', () => { if (mainWindow) mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(); });
 ipcMain.on('window-close', () => mainWindow?.close());
 ipcMain.handle('is-maximized', () => mainWindow?.isMaximized() || false);
+ipcMain.handle('get-cursor-position', () => screen.getCursorScreenPoint());
 
 // ── Privacy Mode (Blackout) ──
 let privacyWindows = [];
@@ -278,6 +279,43 @@ ipcMain.handle('toggle-privacy-mode', (event, enabled) => {
 
 // ── App Lifecycle ──
 app.whenReady().then(() => {
+ ipcMain.handle('get-files', async (event, dirPath) => {
+  try {
+    const target = dirPath || app.getPath('desktop');
+    const items = fs.readdirSync(target, { withFileTypes: true });
+    return items.map(i => ({
+      name: i.name,
+      path: path.join(target, i.name),
+      isDir: i.isDirectory(),
+      size: i.isFile() ? fs.statSync(path.join(target, i.name)).size : 0
+    }));
+  } catch (e) { return []; }
+});
+
+let transferBuffers = new Map();
+ipcMain.handle('file-transfer-chunk', async (event, { id, name, chunk, total, index }) => {
+  try {
+    if (!transferBuffers.has(id)) {
+      const tempPath = path.join(app.getPath('temp'), `phantom_${id}_${name}`);
+      transferBuffers.set(id, tempPath);
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    }
+    const tempPath = transferBuffers.get(id);
+    fs.appendFileSync(tempPath, Buffer.from(chunk));
+    
+    if (index === total - 1) {
+      const destDir = path.join(app.getPath('downloads'), 'PhantomDesk');
+      if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+      const destPath = path.join(destDir, name);
+      fs.renameSync(tempPath, destPath);
+      transferBuffers.delete(id);
+      shell.showItemInFolder(destPath);
+      return { success: true, path: destPath };
+    }
+    return { success: true };
+  } catch (e) { return { success: false, error: e.message }; }
+});
+
   createWindow();
 });
 app.on('window-all-closed', () => app.quit());
