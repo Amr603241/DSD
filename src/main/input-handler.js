@@ -65,6 +65,10 @@ try {
   });
 
   SendInput = user32.func('uint32 __stdcall SendInput(uint32, INPUT *, int)');
+  const MapVirtualKey = user32.func('uint32 __stdcall MapVirtualKeyA(uint32, uint32)');
+  
+  // Expose to global for reuse
+  this.MapVirtualKey = MapVirtualKey;
 
   // DPI Awareness
   try {
@@ -230,18 +234,15 @@ function handleInput(data) {
       if (vk) {
         let flags = EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0;
         // Use MapVirtualKey to get scancode for better compatibility
-        try {
-          const MapVirtualKey = user32.func('uint32 __stdcall MapVirtualKeyA(uint32, uint32)');
-          const scan = MapVirtualKey(vk, 0);
-          if (scan) {
-            flags |= KEYEVENTF_SCANCODE;
-            sendInputs([{
-              type: INPUT_KEYBOARD,
-              u: { ki: { wVk: 0, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
-            }]);
-            return;
-          }
-        } catch {}
+        const scan = MapVirtualKey ? MapVirtualKey(vk, 0) : 0;
+        if (scan) {
+          flags |= KEYEVENTF_SCANCODE;
+          sendInputs([{
+            type: INPUT_KEYBOARD,
+            u: { ki: { wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
+          }]);
+          return;
+        }
         sendInputs([createKeyInput(vk, flags)]);
       }
       break;
@@ -251,18 +252,15 @@ function handleInput(data) {
       const vk = VK_MAP[data.code] || (data.key && data.key.length === 1 ? data.key.toUpperCase().charCodeAt(0) : null);
       if (vk) {
         let flags = KEYEVENTF_KEYUP | (EXTENDED_KEYS.has(data.code) ? KEYEVENTF_EXTENDEDKEY : 0);
-        try {
-          const MapVirtualKey = user32.func('uint32 __stdcall MapVirtualKeyA(uint32, uint32)');
-          const scan = MapVirtualKey(vk, 0);
-          if (scan) {
-            flags |= KEYEVENTF_SCANCODE;
-            sendInputs([{
-              type: INPUT_KEYBOARD,
-              u: { ki: { wVk: 0, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
-            }]);
-            return;
-          }
-        } catch {}
+        const scan = MapVirtualKey ? MapVirtualKey(vk, 0) : 0;
+        if (scan) {
+          flags |= KEYEVENTF_SCANCODE;
+          sendInputs([{
+            type: INPUT_KEYBOARD,
+            u: { ki: { wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 } }
+          }]);
+          return;
+        }
         sendInputs([createKeyInput(vk, flags)]);
       }
       break;
