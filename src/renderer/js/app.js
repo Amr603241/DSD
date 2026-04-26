@@ -27,6 +27,10 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     connected: false,
     sessions: new Map(),
     activeSessionId: null,
+    privacyActive: false,
+    inputLocked: false,
+    isRecording: false,
+    displayMode: 'fit', // fit, original, stretch
     lastClipboard: '',
     incomingRequest: null,
     pendingTargetId: null
@@ -540,6 +544,28 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       if (i % 10 === 0) await new Promise(r => setTimeout(r, 10)); // Prevent congestion
     }
   }
+
+  $('stool-display')?.addEventListener('click', () => {
+    const modes = ['fit', 'original', 'stretch'];
+    const next = modes[(modes.indexOf(state.displayMode) + 1) % modes.length];
+    state.displayMode = next;
+    
+    const video = $('remote-video');
+    if (next === 'fit') {
+      video.style.objectFit = 'contain';
+      video.style.width = '100%';
+      video.style.height = '100%';
+    } else if (next === 'stretch') {
+      video.style.objectFit = 'fill';
+      video.style.width = '100%';
+      video.style.height = '100%';
+    } else {
+      video.style.objectFit = 'none';
+      video.style.width = 'auto';
+      video.style.height = 'auto';
+    }
+    ui.showToast(`وضع العرض: ${next}`, 'info');
+  });
 
   $('stool-privacy')?.addEventListener('click', () => {
     state.privacyActive = !state.privacyActive;

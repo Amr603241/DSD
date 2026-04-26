@@ -11,6 +11,8 @@ class InputCapture {
     this._hostScreenSize = null;
     this._rAF = null;
     this._pendingMove = null;
+    this._lastSentTime = 0;
+    this._throttleMs = 20; // 50Hz control loop
   }
 
   async activate(videoElement) {
@@ -31,8 +33,9 @@ class InputCapture {
     // Mouse events
     this._bound.mousemove = (e) => {
       this._pendingMove = e;
-      if (!this._rAF) {
-        this._rAF = requestAnimationFrame(() => this._processMouseMove());
+      const now = Date.now();
+      if (now - this._lastSentTime >= this._throttleMs) {
+        this._processMouseMove();
       }
     };
     this._bound.mousedown = (e) => this._sendMouse('mousedown', e);
@@ -76,10 +79,10 @@ class InputCapture {
   }
 
   _processMouseMove() {
-    this._rAF = null;
     if (this._pendingMove) {
       this._sendMouse('mousemove', this._pendingMove);
       this._pendingMove = null;
+      this._lastSentTime = Date.now();
     }
   }
 

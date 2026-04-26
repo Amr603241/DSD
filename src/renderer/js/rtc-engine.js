@@ -211,8 +211,13 @@ class RTCEngine {
         if (sender) {
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].maxBitrate = 4000000; // 4Mbps for ultra-smooth control
+          
+          // DYNAMIC BITRATE: Start at 2Mbps for better stability
+          params.encodings[0].maxBitrate = 2000000; 
+          params.encodings[0].networkPriority = 'high';
           params.encodings[0].priority = 'high';
+          
+          // Use H.264 if possible
           sender.setParameters(params).catch(() => {});
         }
       }, 500);
