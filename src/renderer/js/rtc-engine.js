@@ -130,14 +130,19 @@ class RTCEngine {
             maxWidth: 1920,
             minHeight: 720,
             maxHeight: 1080,
-            maxFrameRate: 30
+            maxFrameRate: 60 // Boosted for fluidity
           }
         }
       });
 
       const track = stream.getVideoTracks()[0];
       if (track) {
-        this._fire('log-debug', `[RTC] Track generated: ${track.label}, Enabled: ${track.enabled}, State: ${track.readyState}`);
+        // RADICAL PERFORMANCE TUNING: Prioritize Latency over Resolution
+        if (track.contentHint !== undefined) {
+          track.contentHint = 'motion'; 
+        }
+        
+        this._fire('log-debug', `[RTC] Turbo Track: ${track.label}, Latency Priority Active`);
         track.onended = () => this._fire('log-debug', '[RTC] Screen track ended unexpectedly');
       }
 

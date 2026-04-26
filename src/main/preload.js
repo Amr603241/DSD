@@ -60,4 +60,5 @@ contextBridge.exposeInMainWorld('phantom', {
   isMaximized:       () => ipcRenderer.invoke('is-maximized'),
   focusWindow:       () => ipcRenderer.send('focus-window'),
   logToFile:         (level, msg) => ipcRenderer.send('log-to-file', { level, msg }),
+  onProtocolLink:    (cb) => ipcRenderer.on('protocol-link', (_, l) => cb(l)),
 });

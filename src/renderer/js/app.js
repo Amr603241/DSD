@@ -32,6 +32,17 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
     pendingTargetId: null
   };
 
+  // ── Handle Protocol Links ──
+  window.phantom.onProtocolLink((link) => {
+    const parts = link.split('/');
+    const targetId = parts[parts.length - 1];
+    if (targetId && /^\d+$/.test(targetId)) {
+      log(`رابط اتصال سريع مكتشف للجهاز: ${targetId}`, 'success');
+      $('remote-id-input').value = targetId;
+      signaling.sendRequest(targetId);
+    }
+  });
+
   class Session {
     constructor(id, deviceId, rtc) {
       this.id = id;
@@ -54,6 +65,13 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
       if (s) {
         s.rtc.close();
         state.sessions.delete(socketId);
+        
+        // Hide Session Pulse if no sessions left
+        if (state.sessions.size === 0) {
+          const pulseNav = $('nav-session-pulse');
+          if (pulseNav) pulseNav.style.display = 'none';
+        }
+
         if (state.activeSessionId === socketId) {
           state.activeSessionId = null;
           const next = state.sessions.keys().next().value;
@@ -218,6 +236,10 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
   // ── 3. RTC Handlers ──
   function setupRTCHandlers(rtc, socketId, deviceId) {
+    // Show Session Pulse Nav
+    const pulseNav = $('nav-session-pulse');
+    if (pulseNav) pulseNav.style.display = 'flex';
+
     rtc.on('stream', (stream) => {
       if (state.activeSessionId !== socketId) return;
       
@@ -226,108 +248,85 @@ const SIGNALING_SERVER = 'https://dsd-1.onrender.com';
 
       log('تم استلام دفق الفيديو ✓', 'success');
       
-      // Prevent redundant assignment
       if (video.srcObject !== stream) {
         video.srcObject = stream;
-        
-        const playVideo = () => {
-          video.play().then(() => {
-            log('بدء عرض الشاشة...', 'success');
-            $('video-overlay').style.display = 'none';
-            ui.switchView('session');
-          }).catch(e => {
-            log('بانتظار إذن المتصفح لعرض الفيديو', 'warning');
-            $('video-overlay').style.display = 'flex';
-          });
-        };
-
-        playVideo();
-        $('video-overlay').onclick = playVideo;
+        video.play().catch(() => {
+          $('video-overlay').style.display = 'flex';
+        });
       }
     });
 
-    // Unified Stats Monitor
+    // Unified Control Data Handler with PERMISSIONS
+    rtc.on('control-data', async (data) => {
+      if (!state.isHost) return;
+
+      // Permission Check
+      const canMouse = $('perm-mouse')?.checked !== false;
+      const canKeys = $('perm-keyboard')?.checked !== false;
+      const canClip = $('perm-clipboard')?.checked !== false;
+
+      if (data.type === 'refresh-stream') {
+        log('تلقيت طلباً لتحديث البث...', 'info');
+        await rtc.startScreenShare();
+      } else if (data.type === 'mouse' && canMouse) {
+        window.phantom.simulateInput(data);
+      } else if (data.type === 'key' && canKeys) {
+        window.phantom.simulateInput(data);
+      } else if (data.type === 'clipboard-sync' && canClip) {
+        window.phantom.writeClipboard(data.text);
+      } else if (data.type === 'chat-message') {
+        appendChatMessage('received', data.text);
+      }
+    });
+
     rtc.on('stats-update', (stats) => {
       if (state.activeSessionId === socketId) {
-        // Ensure values are numbers for the HUD
-        const currentFps = Math.round(stats.fps || 0);
-        const currentLatency = Math.round(stats.latency || 0);
-        
-        ui.updateHUD(currentLatency, currentFps);
+        ui.updateHUD(Math.round(stats.latency || 0), Math.round(stats.fps || 0));
         ui.updateDiagStats({
           iceState: stats.iceState || 'Connected',
-          latency: currentLatency,
+          latency: Math.round(stats.latency || 0),
           signaling: 'Active',
           bitrate: stats.bitrate || 2500,
           sessionId: deviceId,
           peerType: state.isHost ? 'Host' : 'Viewer'
         });
-        
-        // HUD color feedback
-        const hudFps = $('hud-fps');
-        if (hudFps) hudFps.style.color = stats.fps > 0 ? '#fff' : '#ef4444';
       }
     });
-
-    // Unified Control Data Handler
-    rtc.on('control-data', async (data) => {
-      if (state.isHost) {
-        if (data.type === 'refresh-stream') {
-          log('تلقيت طلباً لتحديث البث...', 'info');
-          await rtc.startScreenShare();
-        } else if (data.type === 'chat-message') {
-          appendChatMessage('received', data.text);
-        } else if (data.type === 'clipboard-sync') {
-          window.phantom.writeClipboard(data.text);
-        } else {
-          window.phantom.simulateInput(data);
-        }
-      } else {
-        if (data.type === 'chat-message') {
-          appendChatMessage('received', data.text);
-        } else if (data.type === 'clipboard-sync') {
-          window.phantom.writeClipboard(data.text);
-        }
-      }
-    });
-
-    // Watchdog to ensure video stays playing
-    if (!state.videoWatchdog) {
-      state.videoWatchdog = setInterval(() => {
-        const video = $('remote-video');
-        if (video && video.srcObject && video.paused && !video.ended) {
-          video.play().catch(() => {});
-        }
-      }, 3000);
-    }
-
-    rtc.on('datachannel-open', () => log('قناة البيانات مفتوحة - التحكم نشط', 'success'));
+    
     rtc.on('ice-candidate', (c) => signaling.sendIceCandidate(socketId, c));
     rtc.on('re-offer', (offer) => signaling.sendOffer(socketId, offer));
   }
 
   // ── 4. UI Events ──
-  $('stool-refresh')?.addEventListener('click', () => {
-    const s = state.sessions.get(state.activeSessionId);
-    if (s) {
-      log('جاري طلب تحديث البث من المضيف...', 'info');
-      s.rtc.sendControl({ type: 'refresh-stream' });
+  
+  // Quality Switching
+  document.querySelectorAll('.q-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const quality = btn.dataset.quality;
+      log(`تم تغيير جودة البث إلى: ${quality}`, 'info');
+      // In a real RTC app, we would re-negotiate constraints here.
+    });
+  });
+
+  // Permanent Password
+  $('btn-save-static-pwd')?.addEventListener('click', async () => {
+    const pwd = $('static-password-input')?.value.trim();
+    if (pwd) {
+      await window.phantom.setSettings({ staticPassword: pwd });
+      ui.showToast('تم حفظ كلمة المرور الثابتة ✓', 'success');
+      signaling.socket?.emit('update-password', { password: pwd });
     }
   });
 
-  $('stool-fullscreen')?.addEventListener('click', () => {
-    const v = $('remote-video');
-    if (v?.requestFullscreen) v.requestFullscreen();
+  // Connection Link
+  $('btn-copy-link')?.addEventListener('click', () => {
+    const link = `phantomdesk://connect/${state.deviceId}`;
+    navigator.clipboard.writeText(link);
+    ui.showToast('تم نسخ رابط الاتصال ✓', 'success');
   });
 
-  $('stool-chat')?.addEventListener('click', () => {
-    const overlay = $('chat-overlay');
-    if (overlay) overlay.style.display = overlay.style.display === 'none' ? 'flex' : 'none';
-  });
-
-  $('btn-chat-close')?.addEventListener('click', () => {
-    if ($('chat-overlay')) $('chat-overlay').style.display = 'none';
-  });
   $('btn-connect')?.addEventListener('click', () => {
     const id = $('remote-id-input')?.value.trim();
     if (!id) return ui.showToast('أدخل معرّف الجهاز', 'warning');

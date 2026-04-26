@@ -203,29 +203,80 @@
 
       <!-- ── VIEW: SETTINGS ── -->
       <section class="view" id="view-settings">
-        <div class="card">
-          <div class="card-head"><span class="card-tag"><i class="fas fa-sliders"></i> الإعدادات</span></div>
-          <div class="settings-list">
-            <div class="setting-row">
-              <label>جودة البث</label>
-              <select id="set-quality">
-                <option value="fast">أداء عالي (Low Quality)</option>
-                <option value="balanced" selected>متوازن (Balanced)</option>
-                <option value="ultra">جودة فائقة (Ultra)</option>
-              </select>
+        <div class="view-header">
+          <i class="fas fa-gear"></i>
+          <div>
+            <h2>مركز التحكم والإعدادات</h2>
+            <p>تخصيص أداء الجلسة وصلاحيات الوصول الاحترافية</p>
+          </div>
+        </div>
+
+        <div class="settings-grid-pro">
+          <!-- Connection Link Card -->
+          <div class="card settings-card">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-link"></i> رابط الاتصال السريع</span></div>
+            <div class="card-body">
+              <p class="s-desc">أنشئ رابطاً يتيح للآخرين الاتصال بك بضغطة زر واحدة.</p>
+              <div class="link-gen-box">
+                <input type="text" id="share-link-input" readonly value="phantomdesk://connect/...">
+                <button class="btn-action btn-sm" id="btn-copy-link"><i class="fas fa-copy"></i> نسخ</button>
+              </div>
             </div>
-            <div class="setting-row">
-              <label>حماية بكلمة مرور</label>
-              <label class="switch"><input type="checkbox" id="set-password" checked><span class="slider"></span></label>
+          </div>
+
+          <!-- Permissions Card -->
+          <div class="card settings-card">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-shield-halved"></i> صلاحيات المضيف</span></div>
+            <div class="card-body">
+              <div class="setting-row">
+                <label>التحكم بالماوس</label>
+                <label class="switch"><input type="checkbox" id="perm-mouse" checked><span class="slider"></span></label>
+              </div>
+              <div class="setting-row">
+                <label>لوحة المفاتيح</label>
+                <label class="switch"><input type="checkbox" id="perm-keyboard" checked><span class="slider"></span></label>
+              </div>
+              <div class="setting-row">
+                <label>مزامنة الحافظة</label>
+                <label class="switch"><input type="checkbox" id="perm-clipboard" checked><span class="slider"></span></label>
+              </div>
             </div>
-            <div class="setting-row">
-              <label>مزامنة الحافظة</label>
-              <label class="switch"><input type="checkbox" id="set-clipboard" checked><span class="slider"></span></label>
+          </div>
+
+          <!-- Video Quality Card -->
+          <div class="card settings-card">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-gauge-high"></i> الأداء والجودة</span></div>
+            <div class="card-body">
+              <label class="s-label">جودة البث</label>
+              <div class="quality-selector">
+                <button class="q-btn active" data-quality="high">عالية</button>
+                <button class="q-btn" data-quality="med">متوسطة</button>
+                <button class="q-btn" data-quality="low">سرعة</button>
+              </div>
+              <div class="setting-row mt-15">
+                <label>تحجيم الشاشة</label>
+                <select id="setting-scale" class="setting-input">
+                  <option value="1">100%</option>
+                  <option value="0.75">75%</option>
+                  <option value="0.5">50%</option>
+                </select>
+              </div>
             </div>
-            <div class="setting-row">
-              <label>عنوان السيرفر</label>
-              <input type="text" id="set-server" class="setting-input" value="https://dsd-1.onrender.com" placeholder="https://...">
+          </div>
+
+          <!-- Static Password Card -->
+          <div class="card settings-card">
+            <div class="card-head"><span class="card-tag"><i class="fas fa-lock"></i> كلمة المرور الثابتة</span></div>
+            <div class="card-body">
+              <p class="s-desc">للوصول الدائم إلى هذا الجهاز دون تغيير الرمز.</p>
+              <div class="pwd-static-box">
+                <input type="password" id="static-password-input" class="setting-input" placeholder="كلمة مرور ثابتة...">
+                <button class="btn-action" id="btn-save-static-pwd">حفظ</button>
+              </div>
             </div>
+          </div>
+        </div>
+      </section>
             
             <!-- Local Test Section -->
             <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 10px; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">

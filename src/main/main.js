@@ -86,6 +86,13 @@ async function getDeviceId() {
   return id;
 }
 
+// ── Protocol Support ──
+if (process.defaultApp) {
+  if (process.argv.length >= 2) app.setAsDefaultProtocolClient('phantomdesk', process.execPath, [path.resolve(process.argv[1])]);
+} else {
+  app.setAsDefaultProtocolClient('phantomdesk');
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1060, height: 720,
@@ -100,6 +107,15 @@ function createWindow() {
       backgroundThrottling: false
     }
   });
+
+  // Handle Protocol Args
+  const deepLink = process.argv.find(arg => arg.startsWith('phantomdesk://'));
+  if (deepLink) {
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow.webContents.send('protocol-link', deepLink);
+    });
+  }
+
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('closed', () => { mainWindow = null; });
